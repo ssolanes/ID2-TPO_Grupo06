@@ -1,22 +1,21 @@
 # run_static.py
-# Levanta el frontend estático: MongoDB + Neo4j (CRUD)
+# Frontend estático: MongoDB + Neo4j (CRUD)
 
 from nicegui import ui
-import frontend_static.pages.pilotos
-import frontend_static.pages.equipos
-import frontend_static.pages.rallies
-import frontend_static.pages.patrocinadores
-import frontend_static.pages.neo4j_relaciones  # registra todas las rutas
+import frontend_static.pages.pilotos        # type: ignore
+import frontend_static.pages.equipos        # type: ignore
+import frontend_static.pages.rallies        # type: ignore
+import frontend_static.pages.patrocinadores # type: ignore
+import frontend_static.pages.neo4j_relaciones # type: ignore
 
 @ui.page("/")
 def index():
-    from nicegui import ui
-    from frontend_static.shared import GLOBAL_CSS, DARK, RED, GOLD, GREY, CARD, CARD2, BORDER, WHITE, GREEN, BLUE
+    from frontend_static.shared import GLOBAL_CSS, DARK, RED, BLUE, GREY, CARD, BORDER, GREEN
     ui.add_head_html(GLOBAL_CSS)
     ui.query("body").style(f"background:{DARK};")
 
     with ui.column().classes("items-center justify-center").style(
-        f"min-height:100vh; background:{DARK}; width:100%;"
+        f"min-height:100vh; width:100%;"
     ):
         ui.html(
             f'<div style="text-align:center; padding:40px;">'
@@ -27,10 +26,10 @@ def index():
         )
         with ui.row().classes("gap-4 flex-wrap justify-center"):
             for ruta, label, color in [
-                ("/static/pilotos",        "◉  Pilotos",         RED),
-                ("/static/equipos",        "◈  Equipos",         RED),
-                ("/static/rallies",        "◎  Rallies / Etapas",RED),
-                ("/static/patrocinadores", "◇  Patrocinadores",  RED),
+                ("/static/pilotos",        "◉  Pilotos",          RED),
+                ("/static/equipos",        "◈  Equipos",          RED),
+                ("/static/rallies",        "◎  Rallies / Etapas", RED),
+                ("/static/patrocinadores", "◇  Patrocinadores",   RED),
                 ("/static/neo4j",          "⬡  Neo4j · Relaciones", BLUE),
             ]:
                 ui.html(

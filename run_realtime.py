@@ -1,20 +1,18 @@
 # run_realtime.py
-# Levanta el frontend de tiempo real: Redis + Cassandra
-#
+# Frontend tiempo real: Redis + Cassandra
 
 from nicegui import ui
-import frontend_realtime.pages.live_timing
-import frontend_realtime.pages.telemetria  # registra todas las rutas
+import frontend_realtime.pages.live_timing  # type: ignore
+import frontend_realtime.pages.telemetria   # type: ignore
 
 @ui.page("/")
 def index():
-    from nicegui import ui
-    from frontend_realtime.shared import GLOBAL_CSS, DARK, RED, GOLD, GREY, CARD, BORDER, WHITE, GREEN, BLUE
+    from frontend_realtime.shared import GLOBAL_CSS, DARK, RED, GREY, CARD, BORDER, GREEN
     ui.add_head_html(GLOBAL_CSS)
     ui.query("body").style(f"background:{DARK};")
 
     with ui.column().classes("items-center justify-center").style(
-        f"min-height:100vh; background:{DARK}; width:100%;"
+        f"min-height:100vh; width:100%;"
     ):
         ui.html(
             f'<div style="text-align:center; padding:40px;">'
@@ -28,12 +26,12 @@ def index():
         )
         with ui.row().classes("gap-4 flex-wrap justify-center"):
             for ruta, label, color in [
-                ("/realtime/live_timing", "⬤  Live Timing · Redis", RED),
+                ("/realtime/live_timing", "⬤  Live Timing · Redis",    RED),
                 ("/realtime/telemetria",  "◈  Telemetría · Cassandra", GREEN),
             ]:
                 ui.html(
                     f'<a href="{ruta}" style="display:block; padding:16px 28px; '
-                    f'background:#16161D; border:1px solid #2A2A38; border-radius:10px; '
+                    f'background:{CARD}; border:1px solid {BORDER}; border-radius:10px; '
                     f'font-family:Courier New; font-weight:bold; color:{color}; '
                     f'text-decoration:none; font-size:1rem; min-width:240px; text-align:center;">'
                     f'{label}</a>'
