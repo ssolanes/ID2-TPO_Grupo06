@@ -1,5 +1,6 @@
 # run_realtime.py
 # Levanta el frontend de tiempo real: Redis + Cassandra
+#
 
 from nicegui import ui
 import frontend_realtime.pages.live_timing
