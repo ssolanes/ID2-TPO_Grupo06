@@ -18,7 +18,7 @@ Para instalar todas las librerias de python necesarias, correr
 
 Esto basicamente te instala todo de una sin tener que ir haciendo pip install etc etc por cada cosa
 
-Para correr la web, ejecutar run.py 
+Para correr la web, ejecutar run.py
 
 Luego, se deberia ejecutar runBD.py para que se muestren los datos recibidos de redis y cassandra en tiempo real
 
