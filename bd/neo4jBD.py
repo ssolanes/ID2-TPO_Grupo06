@@ -1,8 +1,21 @@
 from neo4j import GraphDatabase
+from neo4j.exceptions import ServiceUnavailable, AuthError
+
 
 URI = "bolt://localhost:7687"
-USER = "neo4j"
+# Para que les ande tienen que crear una instancia de neo4j con estos datos y correrla
+USER = "neo4j" 
 PASSWORD = "12345678"
+
+try:
+    driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
+    driver.verify_connectivity()
+except ServiceUnavailable:
+    print("La instancia de Neo4j no esta corriendo")
+    exit(1)
+except AuthError:
+    print("Usuario o contraseña incorrectos")
+    exit(1)
 
 driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
 
@@ -127,7 +140,7 @@ with driver.session() as session:
     result = session.run("MATCH (n) RETURN count(n) AS cantidad")
     cantidad = result.single()["cantidad"]
 
-    print(f"Base reiniciada y datos cargados correctamente.")
+    print(f"Base de Neo4j reiniciada y datos cargados correctamente.")
     print(f"Nodos cargados: {cantidad}")
 
 driver.close()
