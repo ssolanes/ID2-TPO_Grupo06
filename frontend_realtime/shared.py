@@ -1,9 +1,10 @@
 # frontend_realtime/shared.py
 # Conexiones a Redis y Cassandra + estilos compartidos (tiempo real)
 
-import redis
+from cassandra.io.asyncioreactor import AsyncioConnection
 from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
+import redis
 
 # ─── Redis ───────────────────────────────────────────────────────────────────
 _redis_client = None

@@ -218,11 +218,3 @@ def page_rallies():
             tabla.on("editar",   lambda e: _dialogo_rally(tabla, e.args.get("_id")))
             tabla.on("eliminar", lambda e: _confirmar_eliminar(tabla, e.args.get("_id"), e.args.get("nombre", "?")))
 
-            ui.html('<div class="section-label">JERARQUÍA DE DATOS EMBEBIDOS</div>')
-            ui.html(
-                '<div class="code-block">'
-                'rallies  →  legs[]  →  special_stages[]  →  splits[]\n\n'
-                'legs[].special_stages[].ss_id     ← compartido con Cassandra (telemetria_auto)\n'
-                'legs[].special_stages[].splits[].split_id  ← clave en Redis ZADD (tiempos en vivo)'
-                '</div>'
-            )

@@ -12,17 +12,22 @@ from nicegui import ui
 # ─── Arrancar los otros 2 servidores en background ───────────────────────────
 
 def _lanzar(script: str):
+    base = os.path.dirname(os.path.abspath(__file__))
+    ruta = os.path.join(base, script)
+    env = os.environ.copy()
+    env["PYTHONPATH"] = base
     subprocess.Popen(
-        [sys.executable, script],
-        cwd=os.path.dirname(os.path.abspath(__file__)),
+        [sys.executable, ruta],
+        cwd=base,
+        env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
 
 def _lanzar_servidores():
     time.sleep(1)
-    _lanzar("run_static.py")
-    _lanzar("run_realtime.py")
+    _lanzar("./run_frontends/run_static.py")
+    _lanzar("./run_frontends/run_realtime.py")
 
 threading.Thread(target=_lanzar_servidores, daemon=True).start()
 

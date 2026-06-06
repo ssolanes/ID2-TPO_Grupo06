@@ -185,14 +185,3 @@ def page_equipos():
             tabla.on("editar",   lambda e: _dialogo_equipo(tabla, e.args.get("_id")))
             tabla.on("eliminar", lambda e: _confirmar_eliminar(tabla, e.args.get("_id"), e.args.get("nombre", "?")))
 
-            ui.html('<div class="section-label">SCHEMA · Documento ejemplo</div>')
-            ui.html(
-                '<div class="code-block">'
-                '{ "_id": ObjectId,  "nombre": "Toyota Gazoo Racing WRT",\n'
-                '  "pais": "Japón",  "director_deportivo": "Jari-Matti Latvala",\n'
-                '  "vehiculo_oficial": "Toyota GR Yaris Rally1",\n'
-                '  "pilotos_ids": ["wrc_ogier_01", "wrc_evans_17"],\n'
-                '  "temporadas_activo": 8,  "activo": true,\n'
-                '  "estadisticas": { "puntos_constructores": 550, "victorias": 17, "podios": 30 } }'
-                '</div>'
-            )

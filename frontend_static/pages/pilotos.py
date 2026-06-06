@@ -227,16 +227,3 @@ def page_pilotos():
             tabla.on("eliminar", lambda e: _confirmar_eliminar(
                 tabla, e.args.get("_id"), e.args.get("nombre", "?")))
 
-            # Nota BD
-            ui.html('<div class="section-label">SCHEMA · Documento ejemplo</div>')
-            ui.html(
-                '<div class="code-block">'
-                '{ "_id": ObjectId,  "nombre": "Sébastien",  "apellido": "Ogier",\n'
-                '  "pais": {"codigo": "FR", "nombre": "Francia"},\n'
-                '  "numero_auto": 1,  "equipo_id": "eq_tgr",\n'
-                '  "copiloto_id": "co_landais",  "vehiculo_id": "veh_yaris_1",\n'
-                '  "estado": "activo",\n'
-                '  "estadisticas": { "rallies_disputados": 5, "victorias": 8,\n'
-                '                    "podios": 12, "puntos": 212 } }'
-                '</div>'
-            )

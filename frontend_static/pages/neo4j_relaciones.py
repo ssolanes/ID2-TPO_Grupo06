@@ -7,35 +7,7 @@ from frontend_static.shared import (
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK
 )
 
-# ─── Queries predefinidas ─────────────────────────────────────────────────────
-QUERIES = {
-    "Pilotos y sus equipos": {
-        "cypher": "MATCH (p:Piloto)-[:CONDUCE_PARA]->(e:Equipo) RETURN p.nombre AS Piloto, e.nombre AS Equipo ORDER BY e.nombre",
-        "cols": ["Piloto", "Equipo"],
-    },
-    "Equipos y sus patrocinadores": {
-        "cypher": "MATCH (s:Patrocinador)-[:PATROCINA]->(e:Equipo) RETURN e.nombre AS Equipo, s.nombre AS Patrocinador, s.tipo_patrocinio AS Tipo ORDER BY e.nombre",
-        "cols": ["Equipo", "Patrocinador", "Tipo"],
-    },
-    "Pilotos por campeonato": {
-        "cypher": "MATCH (p:Piloto)-[:PARTICIPA_EN]->(c:Campeonato) RETURN p.nombre AS Piloto, c.nombre AS Campeonato, c.temporada AS Temporada ORDER BY c.temporada DESC",
-        "cols": ["Piloto", "Campeonato", "Temporada"],
-    },
-    "Historial de traspasos": {
-        "cypher": "MATCH (p:Piloto)-[r:CONDUJO_PARA]->(e:Equipo) RETURN p.nombre AS Piloto, e.nombre AS Equipo, r.temporada AS Temporada ORDER BY r.temporada DESC",
-        "cols": ["Piloto", "Equipo", "Temporada"],
-    },
-    "Vehículos y sus equipos": {
-        "cypher": "MATCH (v:Vehiculo)-[:PERTENECE_A]->(e:Equipo) RETURN v.modelo AS Vehiculo, e.nombre AS Equipo, v.categoria AS Categoria",
-        "cols": ["Vehiculo", "Equipo", "Categoria"],
-    },
-    "Ingenieros por equipo": {
-        "cypher": "MATCH (i:Ingeniero)-[:TRABAJA_EN]->(e:Equipo) RETURN i.nombre AS Ingeniero, i.rol AS Rol, e.nombre AS Equipo ORDER BY e.nombre",
-        "cols": ["Ingeniero", "Rol", "Equipo"],
-    },
-}
-
-# ─── Crear nodo (ejemplo: Piloto o Equipo) ───────────────────────────────────
+# CRUD (hay que modificarlo)
 
 def _dialogo_crear_nodo():
     with ui.dialog().props("persistent") as dlg, \
@@ -166,7 +138,7 @@ def _dialogo_crear_relacion():
             )
     dlg.open()
 
-
+    
 # ─── Página principal ─────────────────────────────────────────────────────────
 
 @ui.page("/static/neo4j")
@@ -196,118 +168,8 @@ def page_neo4j():
 
             ui.separator().style(f"background:{BORDER}; margin:8px 0 16px 0;")
 
-            # Mapa de relaciones
-            ui.html('<div class="section-label">MODELO DE GRAFOS · WRC</div>')
-            ui.html(
-                '<div class="code-block">'
-                '(Piloto)-[:CONDUCE_PARA]     →  (Equipo)\n'
-                '(Piloto)-[:CONDUJO_PARA]     →  (Equipo)       // historial traspasos\n'
-                '(Patrocinador)-[:PATROCINA]  →  (Equipo)\n'
-                '(Patrocinador)-[:APADRINA]   →  (Piloto)\n'
-                '(Ingeniero)-[:TRABAJA_EN]    →  (Equipo)\n'
-                '(Vehiculo)-[:PERTENECE_A]    →  (Equipo)\n'
-                '(Equipo)-[:PARTICIPA_EN]     →  (Campeonato)\n'
-                '(Piloto)-[:PARTICIPA_EN]     →  (Campeonato)'
-                '</div>'
-            )
-
-            # ── Queries predefinidas ──
-            ui.html('<div class="section-label">CONSULTAS PREDEFINIDAS</div>')
-
-            tabla_ref = {"tabla": None, "label": None}
-
-            with ui.row().classes("flex-wrap gap-2").style("margin-bottom:12px;"):
-                for nombre_q in QUERIES:
-                    ui.button(nombre_q, on_click=lambda n=nombre_q: _ejecutar_query(n, tabla_ref)).props("flat").style(
-                        f"font-family:Courier New; font-size:0.8rem; color:{GREY}; "
-                        f"border:1px solid {BORDER}; border-radius:6px;"
-                    )
-
-            tabla_ref["label"] = ui.html(
-                f'<div style="font-family:Courier New;font-size:0.82rem;color:{GREY};">'
-                f'Seleccioná una consulta para ver los resultados.</div>'
-            )
-
             tabla_contenedor = ui.column().classes("w-full")
-            tabla_ref["contenedor"] = tabla_contenedor
-
-            # ── Cypher libre ──
-            ui.html('<div class="section-label" style="margin-top:20px;">CYPHER LIBRE</div>')
-            with ui.card().style(f"background:{CARD2}; border:1px solid {BORDER}; width:100%;"):
-                inp_cypher = ui.textarea(
-                    placeholder="MATCH (p:Piloto)-[:CONDUCE_PARA]->(e:Equipo) RETURN p.nombre, e.nombre LIMIT 10"
-                ).style(
-                    f"width:100%; font-family:Courier New; font-size:0.82rem; "
-                    f"color:{GREEN}; min-height:90px;"
-                ).props("outlined dark")
-
-                resultado_libre = ui.html("")
-
-                def ejecutar_libre():
-                    cypher = inp_cypher.value.strip()
-                    if not cypher:
-                        return
-                    try:
-                        rows = neo4j_query(cypher)
-                        if rows:
-                            resultado_libre.set_content(
-                                f'<div style="font-family:Courier New;font-size:0.82rem;color:{GREEN};">'
-                                + f'{len(rows)} resultado(s):<br>'
-                                + "<br>".join(str(r) for r in rows[:20])
-                                + "</div>"
-                            )
-                        else:
-                            resultado_libre.set_content(
-                                f'<div style="font-family:Courier New;color:{GREY};">Sin resultados.</div>'
-                            )
-                    except Exception as e:
-                        resultado_libre.set_content(
-                            f'<div style="font-family:Courier New;color:{RED};">Error: {e}</div>'
-                        )
-
-                with ui.row().classes("w-full justify-end").style("margin-top:8px;"):
-                    ui.button("▶  Ejecutar", on_click=ejecutar_libre).props("unelevated").style(
-                        f"background:{BLUE}; color:white; font-family:Courier New; font-weight:bold;"
-                    )
-                resultado_libre
+           
 
 
-def _ejecutar_query(nombre_q: str, tabla_ref: dict):
-    q = QUERIES[nombre_q]
-    cypher = q["cypher"]
-    cols_names = q["cols"]
 
-    tabla_ref["label"].set_content(
-        f'<div style="font-family:Courier New;font-size:0.82rem;color:{GREY}; margin-bottom:8px;">'
-        f'<span style="color:{BLUE};">{nombre_q}</span> &nbsp;·&nbsp; '
-        f'<code style="color:{GREEN};">{cypher}</code></div>'
-    )
-
-    contenedor = tabla_ref["contenedor"]
-    contenedor.clear()
-
-    try:
-        rows = neo4j_query(cypher)
-        if not rows:
-            with contenedor:
-                ui.html(f'<div style="font-family:Courier New;color:{GREY};">Sin resultados. '
-                        f'Verificá que Neo4j tenga datos cargados.</div>')
-            return
-
-        columnas = [{"name": c, "label": c.upper(), "field": c, "sortable": True, "align": "left",
-                     "style": f"color:{WHITE}; font-family:Courier New;"} for c in cols_names]
-
-        with contenedor:
-            ui.table(columns=columnas, rows=rows, row_key=cols_names[0]).style(
-                f"background:{CARD}; border:1px solid {BORDER}; border-radius:10px; width:100%;"
-            ).props("flat dark")
-
-    except Exception as e:
-        with contenedor:
-            ui.html(
-                f'<div style="font-family:Courier New;font-size:0.85rem;padding:12px;">'
-                f'<span style="color:{RED};">Error Neo4j:</span> '
-                f'<span style="color:{GREY};">{e}</span><br><br>'
-                f'<span style="color:{GREY};">Verificá que Neo4j Desktop esté corriendo en '
-                f'bolt://localhost:7687 y que la contraseña en shared.py sea correcta.</span></div>'
-            )

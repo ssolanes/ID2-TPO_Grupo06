@@ -205,14 +205,3 @@ def page_patrocinadores():
             tabla.on("editar",   lambda e: _dialogo_patrocinador(tabla, e.args.get("_id")))
             tabla.on("eliminar", lambda e: _confirmar_eliminar(tabla, e.args.get("_id"), e.args.get("nombre", "?")))
 
-            # Nota Neo4j
-            ui.html('<div class="section-label">RELACIÓN NEO4J · PATROCINA</div>')
-            ui.html(
-                '<div class="code-block">'
-                'MATCH (p:Patrocinador)-[:PATROCINA]->(e:Equipo)\n'
-                'RETURN p.nombre, e.nombre, p.tipo_patrocinio\n'
-                'ORDER BY p.tipo_patrocinio\n\n'
-                '// Los equipos_ids de este documento son las claves\n'
-                '// que vinculan esta colección con los nodos Equipo en Neo4j.'
-                '</div>'
-            )
