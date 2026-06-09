@@ -1,41 +1,44 @@
-# run_realtime.py
-# Frontend tiempo real: Redis + Cassandra
-
 from nicegui import ui
-import frontend_realtime.pages.live_timing  # type: ignore
-import frontend_realtime.pages.telemetria   # type: ignore
+from frontend_static.shared import GLOBAL_CSS, DARK, RED, BLUE, GREY, CARD, BORDER, GREEN
 
 @ui.page("/")
 def index():
-    from frontend_realtime.shared import GLOBAL_CSS, DARK, RED, GREY, CARD, BORDER, GREEN
     ui.add_head_html(GLOBAL_CSS)
-    ui.query("body").style(f"background:{DARK};")
+    ui.query("body").style(f"background:{DARK}; margin:0; padding:24px; box-sizing:border-box;")
 
-    with ui.column().classes("items-center justify-center").style(
-        f"min-height:100vh; width:100%;"
+    # Botón
+    ui.button("Iniciar carrera ▷").style(
+        f"background:{GREEN}; color:{DARK}; font-family:'Courier New',monospace; "
+        f"font-weight:bold; font-size:1rem; border-radius:8px; padding:14px 28px;"
+    )
+
+    # Fila superior
+    with ui.row().style(f"width:100%; gap:16px; margin-top:20px; height:380px; flex-wrap:nowrap;"):
+        with ui.card().style(
+            f"background:{CARD}; border:1px solid {BORDER}; border-radius:12px; "
+            f"flex:2; height:100%; padding:20px; box-shadow:none;"
+        ):
+            ui.label("Video").style(f"font-family:'Courier New',monospace; color:#f0f0f0; font-size:0.9rem;")
+
+        with ui.card().style(
+            f"background:{CARD}; border:1px solid {BORDER}; border-radius:12px; "
+            f"flex:1; height:100%; padding:20px; box-shadow:none;"
+        ):
+            ui.label("Datos Redis").style(f"font-family:'Courier New',monospace; color:#f0f0f0; font-size:0.9rem;")
+
+        with ui.card().style(
+            f"background:{CARD}; border:1px solid {BORDER}; border-radius:12px; "
+            f"flex:1; height:100%; padding:20px; box-shadow:none;"
+        ):
+            ui.label("Datos Redis").style(f"font-family:'Courier New',monospace; color:#f0f0f0; font-size:0.9rem;")
+
+    # Fila inferior
+    with ui.card().style(
+        f"background:{CARD}; border:1px solid {BORDER}; border-radius:12px; "
+        f"width:100%; min-height:200px; margin-top:16px; padding:20px; box-shadow:none;"
     ):
-        ui.html(
-            f'<div style="text-align:center; padding:40px;">'
-            f'<div style="font-family:Courier New; font-size:3rem; font-weight:bold; color:{RED};">WRC</div>'
-            f'<div style="font-family:Courier New; font-size:1rem; color:{GREY}; margin-bottom:8px;">'
-            f'Realtime · Redis + Cassandra</div>'
-            f'<span style="display:inline-block; width:8px; height:8px; border-radius:50%; '
-            f'background:{RED}; animation:blink 1s infinite; margin-right:6px;"></span>'
-            f'<span style="font-family:Courier New; font-size:0.85rem; color:{RED};">EN VIVO</span>'
-            f'</div>'
-        )
-        with ui.row().classes("gap-4 flex-wrap justify-center"):
-            for ruta, label, color in [
-                ("/realtime/live_timing", "⬤  Live Timing · Redis",    RED),
-                ("/realtime/telemetria",  "◈  Telemetría · Cassandra", GREEN),
-            ]:
-                ui.html(
-                    f'<a href="{ruta}" style="display:block; padding:16px 28px; '
-                    f'background:{CARD}; border:1px solid {BORDER}; border-radius:10px; '
-                    f'font-family:Courier New; font-weight:bold; color:{color}; '
-                    f'text-decoration:none; font-size:1rem; min-width:240px; text-align:center;">'
-                    f'{label}</a>'
-                )
+        ui.label("Datos Cassandra").style(f"font-family:'Courier New',monospace; color:#f0f0f0; font-size:0.9rem;")
+
 
 ui.run(
     host="0.0.0.0",

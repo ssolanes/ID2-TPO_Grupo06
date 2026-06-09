@@ -2,13 +2,15 @@
 
 Estado actual:
 
-- Frontend de inicio hecho
+- Frontend de inicio hechos
 
-- Archivo para crear bd y cargar datos de Neo4J hecho, falta de MongoDB
+- Frontend de Redis y Cassandra parcialmente hechos, terminarian de concretarse cuando se conecten a sus bases de datos
 
 - Frontend, conexion con db y crud para MongoDB hecho parcialmente, faltan agregar colecciones en el front
 
-- Falta front de Neo4J, Redis y Cassandra
+- Falta front de Neo4j
+
+- Archivo para crear bd y cargar datos de Neo4J hecho, falta de MongoDB
 
 - Faltan archivos que creen bd y generen datos de Redis y Cassandra
 
