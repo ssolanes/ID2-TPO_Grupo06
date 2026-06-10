@@ -1,7 +1,3 @@
-# run.py
-# Levanta run_static.py (8081) y run_realtime.py (8082) en paralelo
-# y abre el selector en el navegador automáticamente (8080).
-
 import subprocess
 import sys
 import os
@@ -9,7 +5,6 @@ import threading
 import time
 from nicegui import ui
 
-# ─── Arrancar los otros 2 servidores en background ───────────────────────────
 
 def _lanzar(script: str):
     base = os.path.dirname(os.path.abspath(__file__))
@@ -28,10 +23,11 @@ def _lanzar_servidores():
     time.sleep(1)
     _lanzar("./run_frontends/run_static.py")
     _lanzar("./run_frontends/run_realtime.py")
+    _lanzar("./bd/redisBD.py")
+    _lanzar("./bd/cassandraBD.py")
 
 threading.Thread(target=_lanzar_servidores, daemon=True).start()
 
-# ─── Estilos ──────────────────────────────────────────────────────────────────
 
 RED    = "#E8002A"
 GOLD   = "#F5C518"
@@ -70,7 +66,6 @@ GLOBAL_CSS = f"""
 </style>
 """
 
-# ─── Página selector ─────────────────────────────────────────────────────────
 
 @ui.page("/")
 def index():
@@ -96,7 +91,6 @@ def index():
 
         with ui.row().classes("gap-6 flex-wrap justify-center"):
 
-            # ── Estático ──
             ui.html(
                 f'<a href="http://localhost:8081" target="_blank" class="option-card">'
                 f'<div style="font-family:Courier New; font-size:2rem; color:{RED}; '
@@ -115,7 +109,6 @@ def index():
                 f'</a>'
             )
 
-            # ── Tiempo real ──
             ui.html(
                 f'<a href="http://localhost:8082" target="_blank" class="option-card">'
                 f'<div style="font-family:Courier New; font-size:2rem; color:{RED}; '

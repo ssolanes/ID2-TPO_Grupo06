@@ -1,9 +1,7 @@
 from nicegui import ui
 import html
-import os
-import sys
-import subprocess
 import redis
+import subprocess
 from frontend_static.shared import GLOBAL_CSS, DARK, RED, BLUE, GREY, CARD, BORDER, GREEN, WHITE, GOLD
 
 
@@ -13,20 +11,6 @@ CASSANDRA_CONTAINER = "cassandra-demo"
 CARRERA = "wrc_2026_finlandia"
 KEYSPACE = "world_rally_cup"
 PILOTOS = ["p1", "p2", "p3"]
-
-BASE = os.path.dirname(os.path.abspath(__file__))
-SCRIPTS_BD = [
-    os.path.join(BASE, "bd", "redisBD.py"),
-    os.path.join(BASE, "bd", "cassandraBD.py"),
-]
-
-_procesos_bd = []
-for script in SCRIPTS_BD:
-    if os.path.exists(script):
-        _procesos_bd.append(subprocess.Popen([sys.executable, script], cwd=BASE))
-
-import atexit
-atexit.register(lambda: [p.terminate() for p in _procesos_bd])
 
 
 def redis_cliente():
