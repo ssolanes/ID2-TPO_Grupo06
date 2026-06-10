@@ -1,7 +1,9 @@
 from nicegui import ui
 import html
-import redis
+import os
+import sys
 import subprocess
+import redis
 from frontend_static.shared import GLOBAL_CSS, DARK, RED, BLUE, GREY, CARD, BORDER, GREEN, WHITE, GOLD
 
 
@@ -11,6 +13,20 @@ CASSANDRA_CONTAINER = "cassandra-demo"
 CARRERA = "wrc_2026_finlandia"
 KEYSPACE = "world_rally_cup"
 PILOTOS = ["p1", "p2", "p3"]
+
+BASE = os.path.dirname(os.path.abspath(__file__))
+SCRIPTS_BD = [
+    os.path.join(BASE, "bd", "redisBD.py"),
+    os.path.join(BASE, "bd", "cassandraBD.py"),
+]
+
+_procesos_bd = []
+for script in SCRIPTS_BD:
+    if os.path.exists(script):
+        _procesos_bd.append(subprocess.Popen([sys.executable, script], cwd=BASE))
+
+import atexit
+atexit.register(lambda: [p.terminate() for p in _procesos_bd])
 
 
 def redis_cliente():
@@ -75,7 +91,6 @@ def parsear_tabla_cql(salida):
     lineas = [linea for linea in salida.splitlines() if "|" in linea]
     if not lineas:
         return []
-
     encabezados = [columna.strip() for columna in lineas[0].split("|")]
     filas = []
     for linea in lineas[1:]:
@@ -119,7 +134,6 @@ def formato_tiempo(segundos):
         total = float(segundos)
     except (TypeError, ValueError):
         return "-"
-
     horas = int(total // 3600)
     minutos = int((total % 3600) // 60)
     segundos_restantes = total % 60
@@ -131,7 +145,6 @@ def formato_diferencia(segundos):
         total = float(segundos)
     except (TypeError, ValueError):
         return "-"
-
     signo = "+" if total >= 0 else "-"
     return f"{signo}{formato_tiempo(abs(total))}"
 
@@ -222,7 +235,7 @@ def index():
                     GREEN,
                 )
             else:
-                ui.label("Sin auto activo en tramo. Ejecuta runBD.py para generar datos.").style(
+                ui.label("Sin auto activo en tramo. Ejecuta redisBD.py para generar datos.").style(
                     f"font-family:'Courier New',monospace; color:{GREY}; font-size:0.78rem;"
                 )
 
