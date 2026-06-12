@@ -2,11 +2,16 @@
 # Frontend estático: MongoDB + Neo4j (CRUD)
 
 from nicegui import ui
-import frontend_static.pages.pilotos        # type: ignore
-import frontend_static.pages.equipos        # type: ignore
-import frontend_static.pages.rallies        # type: ignore
-import frontend_static.pages.patrocinadores # type: ignore
-import frontend_static.pages.neo4j_relaciones # type: ignore
+import frontend_static.pages.pilotos            # type: ignore
+import frontend_static.pages.copilotos          # type: ignore
+import frontend_static.pages.jefes_ingenieria   # type: ignore
+import frontend_static.pages.equipos            # type: ignore
+import frontend_static.pages.vehiculos          # type: ignore
+import frontend_static.pages.patrocinadores     # type: ignore
+import frontend_static.pages.rallies            # type: ignore
+import frontend_static.pages.resumenes_carrera  # type: ignore
+import frontend_static.pages.noticias_reportes  # type: ignore
+import frontend_static.pages.neo4j_relaciones   # type: ignore
 
 @ui.page("/")
 def index():
@@ -24,19 +29,24 @@ def index():
             f'Static Data Management · MongoDB + Neo4j</div>'
             f'</div>'
         )
-        with ui.row().classes("gap-4 flex-wrap justify-center"):
+        with ui.row().classes("gap-4 flex-wrap justify-center").style("max-width:900px;"):
             for ruta, label, color in [
-                ("/static/pilotos",        "◉  Pilotos",          RED),
-                ("/static/equipos",        "◈  Equipos",          RED),
-                ("/static/rallies",        "◎  Rallies / Etapas", RED),
-                ("/static/patrocinadores", "◇  Patrocinadores",   RED),
-                ("/static/neo4j",          "⬡  Neo4j · Relaciones", BLUE),
+                ("/static/pilotos",           "◉  Pilotos",             RED),
+                ("/static/copilotos",         "○  Copilotos",           RED),
+                ("/static/jefes_ingenieria",  "⚙  Jefes Ingeniería",    RED),
+                ("/static/equipos",           "◈  Equipos",             RED),
+                ("/static/vehiculos",         "⛍  Vehículos",           RED),
+                ("/static/patrocinadores",    "◇  Patrocinadores",      RED),
+                ("/static/rallies",           "◎  Rallies / Etapas",    RED),
+                ("/static/resumenes_carrera", "🏁 Resúmenes Carrera",    RED),
+                ("/static/noticias_reportes", "📰 Noticias / Reportes",  RED),
+                ("/static/neo4j",             "⬡  Neo4j · Relaciones",   BLUE),
             ]:
                 ui.html(
                     f'<a href="{ruta}" style="display:block; padding:16px 28px; '
                     f'background:{CARD}; border:1px solid {BORDER}; border-radius:10px; '
                     f'font-family:Courier New; font-weight:bold; color:{color}; '
-                    f'text-decoration:none; font-size:1rem; min-width:220px; text-align:center;">'
+                    f'text-decoration:none; font-size:1rem; min-width:260px; text-align:center;">'
                     f'{label}</a>'
                 )
 

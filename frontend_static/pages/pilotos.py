@@ -4,7 +4,7 @@
 from nicegui import ui
 from bson import ObjectId
 from frontend_static.shared import (
-    mongo_col, sidebar, GLOBAL_CSS,
+    mongo_col, sidebar, GLOBAL_CSS, get_query_id,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL
 )
 
@@ -46,7 +46,7 @@ def _dialogo_piloto(tabla, doc_id: str = None):
     col = mongo_col("pilotos")
     doc = {}
     if doc_id:
-        doc = col.find_one({"_id": ObjectId(doc_id)}) or {}
+        doc = col.find_one({"_id": get_query_id(doc_id)}) or {}
 
     stats = doc.get("estadisticas", {})
     pais  = doc.get("pais", {})
@@ -115,7 +115,7 @@ def _dialogo_piloto(tabla, doc_id: str = None):
             }
             try:
                 if doc_id:
-                    col.update_one({"_id": ObjectId(doc_id)}, {"$set": nuevo})
+                    col.update_one({"_id": get_query_id(doc_id)}, {"$set": nuevo})
                     ui.notify("Piloto actualizado ✓", type="positive")
                 else:
                     col.insert_one(nuevo)
@@ -147,7 +147,7 @@ def _confirmar_eliminar(tabla, doc_id: str, nombre: str):
             ui.button("Cancelar", on_click=dlg.close).props("flat").style(f"color:{GREY};")
             def eliminar():
                 try:
-                    col.delete_one({"_id": ObjectId(doc_id)})
+                    col.delete_one({"_id": get_query_id(doc_id)})
                     ui.notify("Piloto eliminado", type="warning")
                     dlg.close()
                     tabla.rows = _cargar_filas()

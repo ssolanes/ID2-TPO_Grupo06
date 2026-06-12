@@ -10,7 +10,7 @@ REDIS_PORT = 6379
 CASSANDRA_CONTAINER = "cassandra-demo"
 CARRERA = "wrc_2026_finlandia"
 KEYSPACE = "world_rally_cup"
-PILOTOS = ["p1", "p2", "p3"]
+PILOTOS = ["p1","p2","p3"]
 
 
 def redis_cliente():
@@ -141,6 +141,7 @@ def index():
     redis_box = None
     autos_box = None
     cassandra_box = None
+    live_overlay_box = None
 
     with ui.row().style("width:100%; gap:16px; margin-top:20px; min-height:380px; flex-wrap:wrap; align-items:stretch;"):
         with ui.card().style(
@@ -150,9 +151,24 @@ def index():
             ui.label("World Rally Cup · Vivo").style(
                 f"font-family:'Courier New',monospace; color:{WHITE}; font-size:1rem; font-weight:bold;"
             )
-            ui.label("Panel operativo para tramo activo, tiempos acumulados e historico.").style(
+            ui.label("").style(
                 f"font-family:'Courier New',monospace; color:{GREY}; font-size:0.8rem;"
             )
+            
+            ui.image("https://media.tenor.com/iIV83CYgYWgAAAAM/cat-drive-car-cat-monkey-drift.gif").style(
+                "width: 100%; max-height: 280px; border-radius: 8px; margin-top: 10px; object-fit: cover;"
+            )
+            
+            live_overlay_box = ui.column().classes("w-full items-center").style("margin-top: 15px; gap: 12px;")
+            
+        with ui.card().style(
+            f"background:{CARD}; border:1px solid {BORDER}; border-radius:12px; "
+            f"flex:1; min-width:280px; padding:20px; box-shadow:none; overflow:hidden;"
+        ):
+            ui.label("Redis · Auto en tramo").style(
+                f"font-family:'Courier New',monospace; color:{WHITE}; font-size:0.9rem; font-weight:bold;"
+            )
+            autos_box = ui.column().classes("w-full").style("overflow:hidden;")
 
         with ui.card().style(
             f"background:{CARD}; border:1px solid {BORDER}; border-radius:12px; "
@@ -163,14 +179,6 @@ def index():
             )
             redis_box = ui.column().classes("w-full").style("overflow:hidden;")
 
-        with ui.card().style(
-            f"background:{CARD}; border:1px solid {BORDER}; border-radius:12px; "
-            f"flex:1; min-width:280px; padding:20px; box-shadow:none; overflow:hidden;"
-        ):
-            ui.label("Redis · Auto en tramo").style(
-                f"font-family:'Courier New',monospace; color:{WHITE}; font-size:0.9rem; font-weight:bold;"
-            )
-            autos_box = ui.column().classes("w-full").style("overflow:hidden;")
 
     with ui.card().style(
         f"background:{CARD}; border:1px solid {BORDER}; border-radius:12px; "
@@ -185,6 +193,30 @@ def index():
         datos_redis = leer_redis()
         redis_box.clear()
         autos_box.clear()
+        live_overlay_box.clear()
+
+        auto = datos_redis["auto_activo"]
+
+        with live_overlay_box:
+            if auto:
+                piloto_act = auto.get("piloto", "-")
+                vel_act = f'{auto.get("velocidad_kmh", "-")} km/h'
+                check_act = f'{auto.get("ultimo_checkpoint", "-")}/{auto.get("checkpoints_totales", "-")}'
+            else:
+                piloto_act, vel_act, check_act = "-", "- km/h", "-/-"
+
+            ui.label(f"Piloto actual: {piloto_act}").style(
+                f"font-family:'Courier New',monospace; color:{WHITE}; font-size:1.1rem; font-weight:bold; text-align:center;"
+            )
+            
+            with ui.row().classes("w-full justify-around items-center").style("margin-top: 5px;"):
+                with ui.column().classes("items-center"):
+                    ui.label("Velocidad").style(f"font-family:'Courier New',monospace; color:{GREY}; font-size:0.9rem;")
+                    ui.label(vel_act).style(f"font-family:'Courier New',monospace; color:{WHITE}; font-size:2.4rem; font-weight:bold;")
+                
+                with ui.column().classes("items-center"):
+                    ui.label("Checkpoint").style(f"font-family:'Courier New',monospace; color:{GREY}; font-size:0.9rem;")
+                    ui.label(check_act).style(f"font-family:'Courier New',monospace; color:{GREEN}; font-size:2.4rem; font-weight:bold;")
 
         with redis_box:
             texto_estado(datos_redis["ok"], "Redis")
@@ -195,17 +227,18 @@ def index():
                 delta = f" ({formato_diferencia(tiempo - ref)})" if ref is not None else ""
                 color = GREEN if ref is not None and tiempo < ref else GOLD if posicion == 1 else WHITE
                 fila_dato(f"{posicion}. {piloto}", f"{formato_tiempo(tiempo)}{delta}", color)
-            fila_dato("Usuarios activos", len(datos_redis["usuarios"]), GREEN)
+            #fila_dato("Usuarios activos", len(datos_redis["usuarios"]), GREEN)
 
         with autos_box:
             texto_estado(datos_redis["ok"], "Redis")
-            auto = datos_redis["auto_activo"]
             if auto:
                 fila_dato("Piloto", auto.get("piloto", "-"), GOLD)
                 fila_dato("Siguiente", auto.get("siguiente_piloto", "-"), WHITE)
                 fila_dato("Etapa", auto.get("etapa", "-"), BLUE)
-                fila_dato("Estado", auto.get("estado_tramo", "-"), GREEN)
-                fila_dato("Velocidad", f'{auto.get("velocidad_kmh", "-")} km/h')
+                estado_original = auto.get("estado_tramo", "-")
+                estado_mostrar = "En tramo" if estado_original == "en_tramo" else "Detenido"
+                fila_dato("Estado", estado_mostrar, GREEN)
+                #fila_dato("Velocidad", f'{auto.get("velocidad_kmh", "-")} km/h')
                 fila_dato("RPM", auto.get("rpm", "-"))
                 fila_dato("Temperatura", f'{auto.get("temperatura_motor", "-")} C')
                 fila_dato("GPS", f'{auto.get("latitud", "-")}, {auto.get("longitud", "-")}')
@@ -213,11 +246,11 @@ def index():
                 fila_dato("Referencia", formato_tiempo(auto.get("referencia_a_superar")), GOLD)
                 fila_dato("Proyectado", formato_tiempo(auto.get("tiempo_proyectado")), WHITE)
                 fila_dato("Mejora estimada", formato_diferencia(-float(auto.get("mejora_estimada", 0))), GREEN)
-                fila_dato(
-                    "Checkpoint",
-                    f'{auto.get("ultimo_checkpoint", "-")}/{auto.get("checkpoints_totales", "-")}',
-                    GREEN,
-                )
+                # fila_dato(
+                #     "Checkpoint",
+                #     f'{auto.get("ultimo_checkpoint", "-")}/{auto.get("checkpoints_totales", "-")}',
+                #     GREEN,
+                # )
             else:
                 ui.label("Sin auto activo en tramo. Ejecuta redisBD.py para generar datos.").style(
                     f"font-family:'Courier New',monospace; color:{GREY}; font-size:0.78rem;"
@@ -231,23 +264,33 @@ def index():
                 ui.label(datos_cassandra["error"]).style(f"font-family:'Courier New',monospace; color:{RED}; font-size:0.72rem;")
                 return
 
-            with ui.row().classes("w-full gap-4").style("align-items:flex-start;"):
-                with ui.column().style("flex:1; min-width:300px;"):
+            with ui.row().classes("w-full gap-12").style("max-width: 900px; align-items: flex-start;"):
+                
+                with ui.column().style("flex: 1.5; min-width: 350px;"):
+                    ui.label("Eventos de carrera").style(
+                        f"font-family:'Courier New',monospace; color:{BLUE}; font-size:0.8rem; font-weight:bold;"
+                    )
+                    for evento in datos_cassandra["eventos"][:5]:
+                        descripcion = evento.get("descripcion", "-")
+                        ui.label(f"- {descripcion}").style(
+                        f"font-family:'Courier New',monospace; color:{WHITE}; font-size:0.8rem; font-weight:bold;"
+                        )
+                        
+                with ui.column().style("flex: 1; min-width: 250px;"):
                     ui.label("Ranking temporal guardado").style(
                         f"font-family:'Courier New',monospace; color:{BLUE}; font-size:0.8rem; font-weight:bold;"
                     )
                     for fila in datos_cassandra["ranking"][:5]:
+                        # piloto = fila.get("piloto", "-")
+                        # posicion = fila.get("posicion", "-")
+                        # ui.label(f"{piloto}").style(
+                        #     f"font-family:'Courier New',monospace; color:{WHITE}; font-size:0.8rem; font-weight:bold;"
+                        # )
                         fila_dato(
                             f'{fila.get("posicion", "-")}. {fila.get("piloto", "-")}',
                             formato_tiempo(fila.get("tiempo_total")),
                         )
 
-                with ui.column().style("flex:1; min-width:300px;"):
-                    ui.label("Eventos de carrera").style(
-                        f"font-family:'Courier New',monospace; color:{BLUE}; font-size:0.8rem; font-weight:bold;"
-                    )
-                    for evento in datos_cassandra["eventos"][:5]:
-                        fila_dato(evento.get("piloto", "-"), evento.get("descripcion", "-"))
 
     actualizar()
     ui.timer(2.0, actualizar)

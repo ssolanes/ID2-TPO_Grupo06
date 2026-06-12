@@ -3,8 +3,10 @@
 
 from nicegui import ui
 from bson import ObjectId
+from datetime import datetime, timezone
+import json
 from frontend_static.shared import (
-    mongo_col, sidebar, GLOBAL_CSS,
+    mongo_col, sidebar, GLOBAL_CSS, get_query_id,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK
 )
 
@@ -12,16 +14,17 @@ from frontend_static.shared import (
 def _doc_a_fila(doc):
     legs = doc.get("legs", [])
     total_ss = sum(len(leg.get("special_stages", [])) for leg in legs)
+    equipos = doc.get("equipos_participantes_ids", [])
     return {
         "_id":        str(doc.get("_id", "")),
         "nombre":     doc.get("nombre", "—"),
         "pais":       doc.get("pais", "—"),
         "temporada":  doc.get("temporada", "—"),
-        "campeonato": doc.get("campeonato_id", "—"),
+        "campeonato": doc.get("campeonato", "—"),
         "superficie": doc.get("superficie_principal", "—"),
         "legs":       len(legs),
         "ss":         total_ss,
-        "estado":     doc.get("estado", "pendiente"),
+        "equipos":    ", ".join(equipos) if isinstance(equipos, list) else str(equipos),
     }
 
 
@@ -33,9 +36,26 @@ def _cargar_filas():
         return []
 
 
+def _parse_fecha(fecha_str):
+    if not fecha_str or not fecha_str.strip():
+        return None
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(fecha_str.strip(), fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def _format_fecha(f):
+    if isinstance(f, datetime):
+        return f.strftime("%Y-%m-%d")
+    return str(f) if f else ""
+
+
 def _dialogo_rally(tabla, doc_id=None):
     col = mongo_col("rallies")
-    doc = col.find_one({"_id": ObjectId(doc_id)}) if doc_id else {}
+    doc = col.find_one({"_id": get_query_id(doc_id)}) if doc_id else {}
     legs_data = doc.get("legs", [])
 
     with ui.dialog().props("persistent") as dlg, \
@@ -53,36 +73,34 @@ def _dialogo_rally(tabla, doc_id=None):
         lbl("DATOS GENERALES")
         with ui.grid(columns=2).classes("w-full gap-2"):
             inp_nombre  = ui.input("Nombre del rally",   value=doc.get("nombre", "")).props("outlined dark dense")
-            inp_pais    = ui.input("País / Región",      value=doc.get("pais", "")).props("outlined dark dense")
+            inp_pais    = ui.input("País",               value=doc.get("pais", "")).props("outlined dark dense")
             inp_sede    = ui.input("Sede / Ciudad base", value=doc.get("sede", "")).props("outlined dark dense")
-            inp_camp    = ui.input("campeonato_id",      value=doc.get("campeonato_id", "wrc_2026")).props("outlined dark dense")
+            inp_camp    = ui.input("Campeonato",         value=doc.get("campeonato", "wrc_2026")).props("outlined dark dense")
             inp_temp    = ui.number("Temporada",         value=doc.get("temporada", 2026), format="%.0f").props("outlined dark dense")
             inp_sup     = ui.select(["tierra","asfalto","nieve","mixto"],
                                     value=doc.get("superficie_principal","tierra"),
                                     label="Superficie").props("outlined dark dense")
-            inp_estado  = ui.select(["pendiente","en_curso","finalizado"],
-                                    value=doc.get("estado","pendiente"),
-                                    label="Estado").props("outlined dark dense")
+            inp_inicio  = ui.input("Fecha Inicio (AAAA-MM-DD)", value=_format_fecha(doc.get("fecha_inicio"))).props("outlined dark dense")
+            inp_fin     = ui.input("Fecha Fin (AAAA-MM-DD)", value=_format_fecha(doc.get("fecha_fin"))).props("outlined dark dense")
 
-        # ── Legs / SS / Splits (simplificado: texto JSON) ──
         lbl("ESTRUCTURA DE LEGS · SPECIAL STAGES · SPLITS")
         ui.html(
             f'<div style="font-family:Courier New;font-size:0.78rem;color:{GREY};margin-bottom:6px;">'
             f'Editá los legs en formato JSON. Cada leg contiene special_stages con splits.</div>'
         )
 
-        import json
         legs_default = json.dumps([{
-            "numero_leg": 1,
-            "fecha": "2026-08-14",
+            "leg_id": "rally_fin_2026_l1",
+            "nombre": "Leg 1",
+            "dia": "Viernes",
             "special_stages": [{
-                "ss_id": "ss_ejemplo_01",
-                "nombre": "Ascochinga 1",
-                "distancia_km": 18.32,
+                "ss_id": "rally_fin_2026_ss1",
+                "nombre": "SS1",
+                "kilometros": 12.5,
                 "superficie": "tierra",
                 "splits": [
-                    {"split_id": "ss_ejemplo_01_sp1", "numero": 1, "distancia_acumulada_km": 6.1, "tiempo_referencia_seg": 128.4},
-                    {"split_id": "ss_ejemplo_01_sp2", "numero": 2, "distancia_acumulada_km": 12.7, "tiempo_referencia_seg": 267.9}
+                    {"split_id": "rally_fin_2026_ss1_sp1", "nombre": "Split 1", "km": 4.2, "tiempo_objetivo": "00:02:08"},
+                    {"split_id": "rally_fin_2026_ss1_sp2", "nombre": "Split 2", "km": 8.1, "tiempo_objetivo": "00:04:05"}
                 ]
             }]
         }], indent=2)
@@ -97,7 +115,7 @@ def _dialogo_rally(tabla, doc_id=None):
 
         lbl("EQUIPOS PARTICIPANTES (IDs separados por coma)")
         inp_equipos = ui.input(
-            value=", ".join(doc.get("equipos_participantes", []))
+            value=", ".join(doc.get("equipos_participantes_ids", [])) if isinstance(doc.get("equipos_participantes_ids"), list) else ""
         ).props("outlined dark dense").classes("w-full")
 
         ui.separator().style(f"background:{BORDER}; margin:8px 0;")
@@ -108,21 +126,30 @@ def _dialogo_rally(tabla, doc_id=None):
             except Exception:
                 ui.notify("Error en JSON de legs", type="negative")
                 return
+
+            f_inicio = _parse_fecha(inp_inicio.value)
+            f_fin = _parse_fecha(inp_fin.value)
+
             equipos_list = [e.strip() for e in inp_equipos.value.split(",") if e.strip()]
+            
             nuevo = {
                 "nombre":               inp_nombre.value.strip(),
                 "pais":                 inp_pais.value.strip(),
                 "sede":                 inp_sede.value.strip(),
-                "campeonato_id":        inp_camp.value.strip(),
+                "campeonato":           inp_camp.value.strip(),
                 "temporada":            int(inp_temp.value or 2026),
                 "superficie_principal": inp_sup.value,
-                "estado":               inp_estado.value,
                 "legs":                 legs_parsed,
-                "equipos_participantes": equipos_list,
+                "equipos_participantes_ids": equipos_list,
             }
+            if f_inicio:
+                nuevo["fecha_inicio"] = f_inicio
+            if f_fin:
+                nuevo["fecha_fin"] = f_fin
+
             try:
                 if doc_id:
-                    col.update_one({"_id": ObjectId(doc_id)}, {"$set": nuevo})
+                    col.update_one({"_id": get_query_id(doc_id)}, {"$set": nuevo})
                     ui.notify("Rally actualizado ✓", type="positive")
                 else:
                     col.insert_one(nuevo)
@@ -149,7 +176,7 @@ def _confirmar_eliminar(tabla, doc_id, nombre):
             ui.button("Cancelar", on_click=dlg.close).props("flat").style(f"color:{GREY};")
             def eliminar():
                 try:
-                    mongo_col("rallies").delete_one({"_id": ObjectId(doc_id)})
+                    mongo_col("rallies").delete_one({"_id": get_query_id(doc_id)})
                     ui.notify("Rally eliminado", type="warning")
                     dlg.close()
                     tabla.rows = _cargar_filas()
@@ -190,7 +217,7 @@ def page_rallies():
                 {"name": "superficie", "label": "SUPERFICIE", "field": "superficie", "sortable": True, "align": "left",   "style": f"color:{GREY};"},
                 {"name": "legs",       "label": "LEGS",       "field": "legs",       "sortable": True, "align": "center", "style": f"color:{GOLD};"},
                 {"name": "ss",         "label": "SS",         "field": "ss",         "sortable": True, "align": "center", "style": f"color:{GOLD};"},
-                {"name": "estado",     "label": "ESTADO",     "field": "estado",     "sortable": True, "align": "center"},
+                {"name": "equipos",    "label": "EQUIPOS PARTICIPANTES", "field": "equipos", "sortable": False, "align": "left", "style": f"color:{GREY};"},
                 {"name": "acciones",   "label": "ACCIONES",   "field": "acciones",   "sortable": False,"align": "center"},
             ]
 
@@ -198,15 +225,6 @@ def page_rallies():
                 f"background:{CARD}; border:1px solid {BORDER}; border-radius:10px; width:100%;"
             ).props("flat dark")
 
-            tabla.add_slot("body-cell-estado", """
-                <q-td :props="props">
-                  <span :class="{
-                    'badge-green': props.value === 'finalizado',
-                    'badge-gold':  props.value === 'en_curso',
-                    'badge-red':   props.value === 'pendiente'
-                  }">{{ props.value.toUpperCase() }}</span>
-                </q-td>
-            """)
             tabla.add_slot("body-cell-acciones", """
                 <q-td :props="props" style="text-align:center;">
                   <q-btn flat round dense icon="edit"   style="color:#F5C518; margin-right:4px;"
@@ -217,4 +235,3 @@ def page_rallies():
             """)
             tabla.on("editar",   lambda e: _dialogo_rally(tabla, e.args.get("_id")))
             tabla.on("eliminar", lambda e: _confirmar_eliminar(tabla, e.args.get("_id"), e.args.get("nombre", "?")))
-

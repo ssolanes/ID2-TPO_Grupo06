@@ -3,6 +3,7 @@
 
 from pymongo import MongoClient
 from neo4j import GraphDatabase
+from bson import ObjectId
 
 # ─── MongoDB ────────────────────────────────────────────────────────────────
 _mongo_client = None
@@ -15,6 +16,14 @@ def get_mongo_db():
 
 def mongo_col(nombre: str):
     return get_mongo_db()[nombre]
+
+def get_query_id(doc_id: str):
+    try:
+        if ObjectId.is_valid(doc_id):
+            return ObjectId(doc_id)
+    except Exception:
+        pass
+    return doc_id
 
 # ─── Neo4j ───────────────────────────────────────────────────────────────────
 _neo4j_driver = None
@@ -152,9 +161,14 @@ def sidebar(pagina_actual: str):
 
     items = [
         ("/static/pilotos",        "◉  Pilotos"),
+        ("/static/copilotos",      "○  Copilotos"),
+        ("/static/jefes_ingenieria","⚙  Jefes Ingeniería"),
         ("/static/equipos",        "◈  Equipos"),
-        ("/static/rallies",        "◎  Rallies / Etapas"),
+        ("/static/vehiculos",      "⛍  Vehículos"),
         ("/static/patrocinadores", "◇  Patrocinadores"),
+        ("/static/rallies",        "◎  Rallies / Etapas"),
+        ("/static/resumenes_carrera", "🏁 Resúmenes Carrera"),
+        ("/static/noticias_reportes", "📰 Noticias / Reportes"),
         ("/static/neo4j",          "⬡  Neo4j · Relaciones"),
     ]
 
