@@ -13,8 +13,7 @@ Proyecto en Python con NiceGUI para visualizar datos de World Rally Cup usando b
 
 ## Cosas que faltan
 
-- Archivo de dataset de MongoDB
-- Terminar frontend MongoDB (faltan colecciones y pulir apartado visual)
+- Terminar frontend MongoDB (pulir apartado visual)
 - Frontend de Neo4J
 - Unificar crud de MongoDB y Neo4J
 - Pulir apartado visual de modulo de tiempo real
