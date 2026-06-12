@@ -89,26 +89,39 @@ def guardar_evento(evento_id, datos):
     piloto = cql_escape(datos.get("piloto", ""))
     checkpoint = int(float(datos.get("checkpoint", 0)))
     tiempo_total = float(datos.get("tiempo_total", 0))
-    velocidad = int(float(datos.get("velocidad_kmh", 0)))
-    rpm = int(float(datos.get("rpm", 0)))
-    temperatura = float(datos.get("temperatura_motor", 0))
-    descripcion = cql_escape(
-        f"{piloto} paso checkpoint {checkpoint} con {formato_tiempo(tiempo_total)} acumulado"
-    )
+    estado = datos.get("estado_tramo", "en_tramo")
+    tipo = "finalizado" if estado == "finalizado" else "telemetria"
+    if estado == "finalizado":
+        descripcion = cql_escape(
+            f"{piloto} finalizo el tramo con {formato_tiempo(tiempo_total)} acumulado"
+        )
+    else:
+        descripcion = cql_escape(
+            f"{piloto} paso checkpoint {checkpoint} con {formato_tiempo(tiempo_total)} acumulado"
+        )
 
-    ejecutar_cql(f"""
-        INSERT INTO {KEYSPACE}.telemetria_historica
-        (carrera, piloto, fecha, velocidad_kmh, rpm, temperatura_motor, checkpoint)
-        VALUES ('{CARRERA}', '{piloto}', toTimestamp(now()), {velocidad}, {rpm}, {temperatura}, {checkpoint});
+    sentencias = []
+    if estado != "finalizado":
+        velocidad = int(float(datos.get("velocidad_kmh", 0)))
+        rpm = int(float(datos.get("rpm", 0)))
+        temperatura = float(datos.get("temperatura_motor", 0))
+        sentencias.append(f"""
+            INSERT INTO {KEYSPACE}.telemetria_historica
+            (carrera, piloto, fecha, velocidad_kmh, rpm, temperatura_motor, checkpoint)
+            VALUES ('{CARRERA}', '{piloto}', toTimestamp(now()), {velocidad}, {rpm}, {temperatura}, {checkpoint});
+        """)
+        sentencias.append(f"""
+            INSERT INTO {KEYSPACE}.tiempos_checkpoint
+            (carrera, checkpoint, piloto, fecha, tiempo_total)
+            VALUES ('{CARRERA}', {checkpoint}, '{piloto}', toTimestamp(now()), {tiempo_total});
+        """)
 
-        INSERT INTO {KEYSPACE}.tiempos_checkpoint
-        (carrera, checkpoint, piloto, fecha, tiempo_total)
-        VALUES ('{CARRERA}', {checkpoint}, '{piloto}', toTimestamp(now()), {tiempo_total});
-
+    sentencias.append(f"""
         INSERT INTO {KEYSPACE}.eventos_carrera
         (carrera, fecha, evento_id, piloto, tipo, descripcion)
-        VALUES ('{CARRERA}', toTimestamp(now()), '{cql_escape(evento_id)}', '{piloto}', 'telemetria', '{descripcion}');
+        VALUES ('{CARRERA}', toTimestamp(now()), '{cql_escape(evento_id)}', '{piloto}', '{tipo}', '{descripcion}');
     """)
+    ejecutar_cql("\n".join(sentencias))
 
 
 def guardar_ranking(r):

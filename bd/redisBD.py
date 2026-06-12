@@ -13,6 +13,7 @@ REDIS_PORT = 6379
 CARRERA = "wrc_2026_finlandia"
 PILOTOS = ["p1", "p2", "p3"]
 CHECKPOINTS_POR_ETAPA = 8
+SEGUNDOS_ENTRE_CHECKPOINTS = 2
 SEGUNDOS_ENTRE_LARGADAS = 3
 TIEMPOS_REFERENCIA = {
     "p1": 1132.450,
@@ -169,7 +170,7 @@ def main():
                 }
             time.sleep(SEGUNDOS_ENTRE_LARGADAS)
 
-        time.sleep(1)
+        time.sleep(SEGUNDOS_ENTRE_CHECKPOINTS)
 
 
 if __name__ == "__main__":

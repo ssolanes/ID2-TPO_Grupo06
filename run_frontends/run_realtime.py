@@ -1,4 +1,5 @@
 from nicegui import ui
+import asyncio
 import html
 import redis
 import subprocess
@@ -11,6 +12,8 @@ CASSANDRA_CONTAINER = "cassandra-demo"
 CARRERA = "wrc_2026_finlandia"
 KEYSPACE = "world_rally_cup"
 PILOTOS = ["p1","p2","p3"]
+CHECKPOINTS_POR_ETAPA = 8
+TELEMETRIA_POR_PILOTO = 2
 
 
 def redis_cliente():
@@ -48,8 +51,39 @@ def leer_redis():
         return {"ok": False, "error": str(e), "ranking": [], "referencia": {}, "auto_activo": {}, "usuarios": []}
 
 
+def es_telemetria_valida(fila):
+    try:
+        return (
+            int(float(fila.get("velocidad_kmh", 0))) > 0
+            and int(float(fila.get("rpm", 0))) > 0
+            and float(fila.get("temperatura_motor", 0)) > 0
+        )
+    except (TypeError, ValueError):
+        return False
+
+
 def leer_cassandra():
     try:
+        checkpoints_cql = ", ".join(str(numero) for numero in range(1, CHECKPOINTS_POR_ETAPA + 1))
+
+        telemetria_filas = []
+        for piloto in PILOTOS:
+            telemetria = ejecutar_cql(f"""
+                SELECT piloto, fecha, velocidad_kmh, rpm, temperatura_motor, checkpoint
+                FROM {KEYSPACE}.telemetria_historica
+                WHERE carrera = '{CARRERA}' AND piloto = '{piloto}'
+                LIMIT {TELEMETRIA_POR_PILOTO};
+            """)
+            telemetria_filas.extend(
+                fila for fila in parsear_tabla_cql(telemetria) if es_telemetria_valida(fila)
+            )
+
+        tiempos = ejecutar_cql(f"""
+            SELECT checkpoint, piloto, tiempo_total
+            FROM {KEYSPACE}.tiempos_checkpoint
+            WHERE carrera = '{CARRERA}' AND checkpoint IN ({checkpoints_cql})
+            LIMIT 12;
+        """)
         ranking = ejecutar_cql(f"""
             SELECT posicion, piloto, tiempo_total
             FROM {KEYSPACE}.ranking_temporal
@@ -64,11 +98,13 @@ def leer_cassandra():
         """)
         return {
             "ok": True,
+            "telemetria": telemetria_filas,
+            "tiempos": parsear_tabla_cql(tiempos),
             "ranking": parsear_tabla_cql(ranking),
             "eventos": parsear_tabla_cql(eventos),
         }
     except Exception as e:
-        return {"ok": False, "error": str(e), "ranking": [], "eventos": []}
+        return {"ok": False, "error": str(e), "telemetria": [], "tiempos": [], "ranking": [], "eventos": []}
 
 
 def parsear_tabla_cql(salida):
@@ -102,6 +138,43 @@ def fila_dato(label, valor, color=WHITE):
             f"font-family:'Courier New',monospace; color:{color}; font-size:0.78rem; "
             f"font-weight:bold; text-align:right; overflow-wrap:anywhere;"
         )
+
+
+def mini_panel(titulo, subtitulo=None):
+    panel = ui.column().classes("w-full").style(
+        f"background:#1C1C24; border:1px solid {BORDER}; border-radius:8px; "
+        f"padding:14px; gap:8px; min-height:168px; overflow:hidden;"
+    )
+    with panel:
+        ui.label(titulo).style(
+            f"font-family:'Courier New',monospace; color:{BLUE}; "
+            f"font-size:0.78rem; font-weight:bold; text-transform:uppercase;"
+        )
+        if subtitulo:
+            ui.label(subtitulo).style(
+                f"font-family:'Courier New',monospace; color:{GREY}; "
+                f"font-size:0.68rem; margin-top:-4px;"
+            )
+    return panel
+
+
+def fila_tabla(columnas):
+    with ui.row().classes("w-full items-center").style(
+        f"gap:10px; flex-wrap:nowrap; border-top:1px solid {BORDER}; padding-top:7px;"
+    ):
+        for texto, color, flex in columnas:
+            ui.label(str(texto)).style(
+                f"font-family:'Courier New',monospace; color:{color}; font-size:0.72rem; "
+                f"font-weight:bold; flex:{flex}; overflow:hidden; text-overflow:ellipsis; "
+                f"white-space:nowrap;"
+            )
+
+
+def texto_vacio(mensaje):
+    ui.label(mensaje).style(
+        f"font-family:'Courier New',monospace; color:{GREY}; font-size:0.72rem; "
+        f"padding-top:8px;"
+    )
 
 
 def bloque_pre(texto):
@@ -189,8 +262,8 @@ def index():
         )
         cassandra_box = ui.column().classes("w-full").style("overflow:hidden;")
 
-    def actualizar():
-        datos_redis = leer_redis()
+    async def actualizar_redis():
+        datos_redis = await asyncio.to_thread(leer_redis)
         redis_box.clear()
         autos_box.clear()
         live_overlay_box.clear()
@@ -256,7 +329,8 @@ def index():
                     f"font-family:'Courier New',monospace; color:{GREY}; font-size:0.78rem;"
                 )
 
-        datos_cassandra = leer_cassandra()
+    async def actualizar_cassandra():
+        datos_cassandra = await asyncio.to_thread(leer_cassandra)
         cassandra_box.clear()
         with cassandra_box:
             texto_estado(datos_cassandra["ok"], "Cassandra")
@@ -264,36 +338,57 @@ def index():
                 ui.label(datos_cassandra["error"]).style(f"font-family:'Courier New',monospace; color:{RED}; font-size:0.72rem;")
                 return
 
-            with ui.row().classes("w-full gap-12").style("max-width: 900px; align-items: flex-start;"):
-                
-                with ui.column().style("flex: 1.5; min-width: 350px;"):
-                    ui.label("Eventos de carrera").style(
-                        f"font-family:'Courier New',monospace; color:{BLUE}; font-size:0.8rem; font-weight:bold;"
-                    )
+            with ui.grid(columns=2).classes("w-full").style(
+                "gap:14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));"
+            ):
+                with mini_panel("Telemetria historica", "tabla: telemetria_historica"):
+                    if not datos_cassandra["telemetria"]:
+                        texto_vacio("Sin telemetria historica guardada.")
+                    for fila in datos_cassandra["telemetria"][:6]:
+                        fila_tabla([
+                            (fila.get("piloto", "-"), GOLD, "0 0 46px"),
+                            (f'{fila.get("velocidad_kmh", "-")} km/h', WHITE, "1"),
+                            (f'{fila.get("rpm", "-")} rpm', WHITE, "1"),
+                            (f'{fila.get("temperatura_motor", "-")} C', GREEN, "1"),
+                            (f'CP {fila.get("checkpoint", "-")}', BLUE, "0 0 52px"),
+                        ])
+
+                with mini_panel("Tiempos por checkpoint", "tabla: tiempos_checkpoint"):
+                    if not datos_cassandra["tiempos"]:
+                        texto_vacio("Sin tiempos por checkpoint guardados.")
+                    for fila in datos_cassandra["tiempos"][:6]:
+                        fila_tabla([
+                            (f'CP {fila.get("checkpoint", "-")}', BLUE, "0 0 58px"),
+                            (fila.get("piloto", "-"), GOLD, "0 0 54px"),
+                            (formato_tiempo(fila.get("tiempo_total")), WHITE, "1"),
+                        ])
+
+                with mini_panel("Ranking temporal guardado", "tabla: ranking_temporal"):
+                    if not datos_cassandra["ranking"]:
+                        texto_vacio("Sin ranking temporal guardado.")
+                    for fila in datos_cassandra["ranking"][:6]:
+                        fila_tabla([
+                            (f'{fila.get("posicion", "-")}.', BLUE, "0 0 36px"),
+                            (fila.get("piloto", "-"), GOLD, "0 0 54px"),
+                            (formato_tiempo(fila.get("tiempo_total")), WHITE, "1"),
+                        ])
+
+                with mini_panel("Eventos de carrera", "tabla: eventos_carrera"):
+                    if not datos_cassandra["eventos"]:
+                        texto_vacio("Sin eventos de carrera guardados.")
                     for evento in datos_cassandra["eventos"][:5]:
                         descripcion = evento.get("descripcion", "-")
-                        ui.label(f"- {descripcion}").style(
-                        f"font-family:'Courier New',monospace; color:{WHITE}; font-size:0.8rem; font-weight:bold;"
-                        )
-                        
-                with ui.column().style("flex: 1; min-width: 250px;"):
-                    ui.label("Ranking temporal guardado").style(
-                        f"font-family:'Courier New',monospace; color:{BLUE}; font-size:0.8rem; font-weight:bold;"
-                    )
-                    for fila in datos_cassandra["ranking"][:5]:
-                        # piloto = fila.get("piloto", "-")
-                        # posicion = fila.get("posicion", "-")
-                        # ui.label(f"{piloto}").style(
-                        #     f"font-family:'Courier New',monospace; color:{WHITE}; font-size:0.8rem; font-weight:bold;"
-                        # )
-                        fila_dato(
-                            f'{fila.get("posicion", "-")}. {fila.get("piloto", "-")}',
-                            formato_tiempo(fila.get("tiempo_total")),
+                        ui.label(descripcion).style(
+                            f"font-family:'Courier New',monospace; color:{WHITE}; "
+                            f"font-size:0.72rem; font-weight:bold; border-top:1px solid {BORDER}; "
+                            f"padding-top:7px; overflow-wrap:anywhere;"
                         )
 
 
-    actualizar()
-    ui.timer(2.0, actualizar)
+    ui.timer(0.1, actualizar_redis, once=True)
+    ui.timer(0.2, actualizar_cassandra, once=True)
+    ui.timer(1.0, actualizar_redis)
+    ui.timer(4.0, actualizar_cassandra)
 
 
 ui.run(
