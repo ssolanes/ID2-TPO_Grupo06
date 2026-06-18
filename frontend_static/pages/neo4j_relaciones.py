@@ -4,6 +4,7 @@
 from nicegui import ui
 from frontend_static.shared import (
     mongo_col, neo4j_query, sidebar, GLOBAL_CSS,
+    ENTIDADES_NEO, display_doc_neo,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK
 )
 
@@ -125,79 +126,12 @@ def _parse_relacion(valor: str):
     return rel, destino
 
 
-ENTIDADES_MONGO = {
-    "Piloto": {
-        "coleccion": "pilotos",
-        "prop_nombre": "nombre",
-        "label": "Piloto",
-    },
-    "Copiloto": {
-        "coleccion": "copiloto",
-        "prop_nombre": "nombre",
-        "label": "Copiloto",
-    },
-    "Equipo": {
-        "coleccion": "equipos",
-        "prop_nombre": "nombre",
-        "label": "Equipo",
-    },
-    "Vehiculo": {
-        "coleccion": "vehiculos",
-        "prop_nombre": "modelo",
-        "label": "Vehiculo",
-    },
-    "Patrocinador": {
-        "coleccion": "patrocinador",
-        "prop_nombre": "nombre",
-        "label": "Patrocinador",
-    },
-    "JefeIngenieria": {
-        "coleccion": "jefe_ingenieria",
-        "prop_nombre": "nombre",
-        "label": "JefeIngenieria",
-    },
-    "Rally": {
-        "coleccion": "rallies",
-        "prop_nombre": "nombre",
-        "label": "Rally",
-    },
-    "NoticiaReporte": {
-        "coleccion": "noticias_reportes",
-        "prop_nombre": "titular",
-        "label": "NoticiaReporte",
-    },
-    "ResumenCarrera": {
-        "coleccion": "resumenes_carrera",
-        "prop_nombre": "titulo",
-        "label": "ResumenCarrera",
-    },
-}
-
-
-def _nombre_completo(doc):
-    return f'{doc.get("nombre", "")} {doc.get("apellido", "")}'.strip()
-
-
-def _display_doc(tipo, doc):
-    if tipo in ("Piloto", "Copiloto", "JefeIngenieria"):
-        nombre = _nombre_completo(doc)
-    elif tipo == "Vehiculo":
-        nombre = f'{doc.get("marca", "")} {doc.get("modelo", "")}'.strip()
-    elif tipo == "NoticiaReporte":
-        nombre = doc.get("titular", str(doc.get("_id", "")))
-    elif tipo == "ResumenCarrera":
-        nombre = doc.get("titulo", str(doc.get("_id", "")))
-    else:
-        nombre = doc.get("nombre", str(doc.get("_id", "")))
-    return nombre or str(doc.get("_id", ""))
-
-
 def _nodo_neo_para_doc(tipo, doc):
-    meta = ENTIDADES_MONGO[tipo]
+    meta = ENTIDADES_NEO[tipo]
     label = meta["label"]
     prop_nombre = meta["prop_nombre"]
     mongo_id = str(doc.get("_id", ""))
-    display = _display_doc(tipo, doc)
+    display = display_doc_neo(tipo, doc)
     rows = neo4j_query(f"""
         MATCH (n:{label})
         WHERE n.mongo_id = $mongo_id OR n.{prop_nombre} = $display
@@ -408,7 +342,7 @@ def _cargar_relaciones_incompletas():
         if not _existe_relacion(node_id, "(n)-[:CONDUCE]->(:Vehiculo)"):
             faltantes.append("vehiculo")
         if faltantes:
-            incompletas.append({"tipo": "Piloto", "nombre": _display_doc("Piloto", doc), "faltantes": faltantes})
+            incompletas.append({"tipo": "Piloto", "nombre": display_doc_neo("Piloto", doc), "faltantes": faltantes})
 
     for doc in mongo_col("copiloto").find():
         node_id = _nodo_neo_para_doc("Copiloto", doc)
@@ -418,7 +352,7 @@ def _cargar_relaciones_incompletas():
         if not _existe_relacion(node_id, "(n)-[:PERTENECE_A]->(:Equipo)"):
             faltantes.append("equipo")
         if faltantes:
-            incompletas.append({"tipo": "Copiloto", "nombre": _display_doc("Copiloto", doc), "faltantes": faltantes})
+            incompletas.append({"tipo": "Copiloto", "nombre": display_doc_neo("Copiloto", doc), "faltantes": faltantes})
 
     for doc in mongo_col("equipos").find():
         node_id = _nodo_neo_para_doc("Equipo", doc)
@@ -430,7 +364,7 @@ def _cargar_relaciones_incompletas():
         if not _existe_relacion(node_id, "(:Patrocinador)-[:PATROCINA]->(n)"):
             faltantes.append("sponsor")
         if faltantes:
-            incompletas.append({"tipo": "Equipo", "nombre": _display_doc("Equipo", doc), "faltantes": faltantes})
+            incompletas.append({"tipo": "Equipo", "nombre": display_doc_neo("Equipo", doc), "faltantes": faltantes})
 
     return sorted(incompletas, key=lambda item: (item["tipo"], item["nombre"]))[:100]
 

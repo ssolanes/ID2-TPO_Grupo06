@@ -51,6 +51,7 @@ Esa estructura no se modela como relaciones Neo4j.
 ### Neo4j
 
 Neo4j guarda relaciones entre entidades grandes del dominio. Los nodos se crean automaticamente desde MongoDB.
+Cada nodo Neo4j conserva solo datos minimos de visualizacion: `mongo_id`, `nombre` y, cuando hace falta por compatibilidad del frontend, un alias como `modelo`, `titular` o `titulo`. Los datos descriptivos completos viven en MongoDB.
 
 Relaciones disponibles desde el frontend:
 
