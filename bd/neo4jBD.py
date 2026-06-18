@@ -21,7 +21,6 @@ driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
 
 cypher = """
 CREATE
-(t1:Temporada {nombre: "Temporada WRC 2026", anio: 2026}),
 (c1:Campeonato {nombre: "World Rally Cup", organizador: "FIA"}),
 (r1:Rally {nombre: "Rally Finland", pais: "Finlandia"}),
 (e1:Equipo {nombre: "Monster Rally Team", pais: "Estados Unidos"}),
@@ -46,7 +45,6 @@ CREATE
 (s2:Patrocinador {nombre: "Pirelli", industria: "Neumáticos"}),
 (s3:Patrocinador {nombre: "Shell", industria: "Combustibles"}),
 
-(t1)-[:TIENE_CAMPEONATO]->(c1),
 (c1)-[:TIENE_RALLY]->(r1),
 
 (p1)-[:PERTENECE_A]->(e1),

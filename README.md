@@ -64,7 +64,6 @@ Relaciones disponibles desde el frontend:
 - Equipo participa en rally.
 - Patrocinador patrocina equipo.
 - Jefe de ingenieria dirige equipo.
-- Temporada tiene campeonato.
 - Campeonato tiene rally.
 - Noticia / reporte habla de rally.
 - Resumen de carrera resume rally.

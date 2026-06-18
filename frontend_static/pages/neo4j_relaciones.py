@@ -31,9 +31,6 @@ RELACIONES_POR_ORIGEN = {
     "JefeIngenieria": [
         ("DIRIGE", "Equipo"),
     ],
-    "Temporada": [
-        ("TIENE_CAMPEONATO", "Campeonato"),
-    ],
     "Campeonato": [
         ("TIENE_RALLY", "Rally"),
     ],
@@ -53,7 +50,6 @@ TIPOS_AMIGABLES = {
     "Vehiculo": "Vehículo",
     "Patrocinador": "Patrocinador",
     "JefeIngenieria": "Jefe de ingeniería",
-    "Temporada": "Temporada",
     "Campeonato": "Campeonato",
     "Rally": "Rally",
     "NoticiaReporte": "Noticia / reporte",
@@ -73,7 +69,6 @@ RELACIONES_AMIGABLES = {
     ("Equipo", "PARTICIPA_EN", "Rally"): "Participa en rally",
     ("Patrocinador", "PATROCINA", "Equipo"): "Patrocina un equipo",
     ("JefeIngenieria", "DIRIGE", "Equipo"): "Dirige un equipo",
-    ("Temporada", "TIENE_CAMPEONATO", "Campeonato"): "Tiene campeonato",
     ("Campeonato", "TIENE_RALLY", "Rally"): "Tiene rally",
     ("NoticiaReporte", "HABLA_DE", "Rally"): "Habla de un rally",
     ("ResumenCarrera", "RESUME", "Rally"): "Resume un rally",
