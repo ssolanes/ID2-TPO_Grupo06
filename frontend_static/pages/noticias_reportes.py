@@ -3,6 +3,7 @@
 
 from nicegui import ui
 from datetime import datetime, timezone
+from html import escape
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
     sync_neo_node_from_doc, delete_neo_node_from_doc,
@@ -17,15 +18,12 @@ def _doc_a_fila(doc: dict) -> dict:
     tags = doc.get("etiquetas", [])
     tags_str = ", ".join(tags) if isinstance(tags, list) else str(tags)
 
-    contenido = doc.get("contenido", "")
-    contenido_corto = contenido[:80] + "..." if len(contenido) > 80 else contenido
-
     return {
         "_id":       str(doc.get("_id", "")),
         "titular":   doc.get("titular", "—"),
         "tipo":      doc.get("tipo", "—"),
         "fecha":     fecha_str,
-        "contenido": contenido_corto,
+        "contenido": doc.get("contenido", ""),
         "tags":      tags_str,
         "fuente":    doc.get("fuente", "—"),
     }
@@ -163,6 +161,36 @@ def _confirmar_eliminar(tabla, doc_id: str, nombre: str):
     dlg.open()
 
 
+def _dialogo_contenido(row: dict):
+    titulo = escape(str(row.get("titular", "Reporte")))
+    contenido = escape(str(row.get("contenido") or "—"))
+    with ui.dialog() as dlg, \
+         ui.card().style(
+             f"background:{CARD}; border:1px solid {BORDER}; "
+             f"width:min(760px, 92vw); max-height:82vh;"
+         ):
+        with ui.row().classes("w-full items-center justify-between").style("gap:12px;"):
+            ui.html(
+                f'<div style="font-family:Courier New;font-size:1rem;'
+                f'font-weight:bold;color:{WHITE}; flex:1; min-width:0; '
+                f'white-space:normal; overflow-wrap:anywhere; line-height:1.35;">'
+                f'{titulo}</div>'
+            )
+            ui.button(icon="close", on_click=dlg.close).props("flat round dense").style(f"color:{GREY};")
+
+        ui.separator().style(f"background:{BORDER}; margin:8px 0;")
+
+        ui.html(
+            f'<div style="font-family:Courier New;font-size:0.88rem;'
+            f'line-height:1.55;color:{WHITE};white-space:pre-wrap;'
+            f'background:{CARD2};border:1px solid {BORDER};border-radius:8px;'
+            f'padding:14px;max-height:58vh;overflow-y:auto;">'
+            f'{contenido}</div>'
+        )
+
+    dlg.open()
+
+
 @ui.page("/static/noticias_reportes")
 def page_noticias_reportes():
     ui.add_head_html(GLOBAL_CSS)
@@ -188,7 +216,7 @@ def page_noticias_reportes():
                 {"name": "titular",   "label": "TITULAR",      "field": "titular",     "sortable": True,  "align": "left",   "style": f"color:{WHITE}; font-weight:bold; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"},
                 {"name": "tipo",      "label": "TIPO",         "field": "tipo",        "sortable": True,  "align": "center"},
                 {"name": "fecha",     "label": "FECHA",        "field": "fecha",       "sortable": True,  "align": "left",   "style": f"color:{GREY};"},
-                {"name": "contenido", "label": "CONTENIDO",    "field": "contenido",   "sortable": False, "align": "left",   "style": f"color:{GREY}; font-size:0.8rem; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"},
+                {"name": "contenido", "label": "CONTENIDO",    "field": "contenido",   "sortable": False, "align": "left",   "style": f"color:{GREY}; font-size:0.8rem; min-width:260px; max-width:420px;"},
                 {"name": "tags",      "label": "ETIQUETAS",    "field": "tags",        "sortable": False, "align": "left",   "style": f"color:{GREEN}; font-size:0.8rem;"},
                 {"name": "fuente",    "label": "FUENTE",       "field": "fuente",      "sortable": True,  "align": "left",   "style": f"color:{GREY};"},
                 {"name": "acciones",  "label": "ACCIONES",     "field": "acciones",    "sortable": False, "align": "center"},
@@ -211,6 +239,24 @@ def page_noticias_reportes():
                 </q-td>
             """)
 
+            tabla.add_slot("body-cell-contenido", """
+                <q-td :props="props" style="max-width:420px;">
+                  <div style="display:flex; align-items:center; gap:8px; max-width:420px;">
+                    <div style="font-family:Courier New; font-size:0.78rem; color:#8A8A9A; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;">
+                      {{ props.value || '—' }}
+                    </div>
+                    <q-btn
+                      flat
+                      dense
+                      size="sm"
+                      icon="visibility"
+                      style="color:#0080FF; flex:0 0 auto;"
+                      @click="$parent.$emit('ver_contenido', props.row)"
+                    />
+                  </div>
+                </q-td>
+            """)
+
             tabla.add_slot("body-cell-acciones", """
                 <q-td :props="props" style="text-align:center;">
                   <q-btn flat round dense icon="edit"
@@ -225,3 +271,4 @@ def page_noticias_reportes():
             tabla.on("editar",   lambda e: _dialogo_noticia(tabla, e.args.get("_id")))
             tabla.on("eliminar", lambda e: _confirmar_eliminar(
                 tabla, e.args.get("_id"), e.args.get("titular", "?")))
+            tabla.on("ver_contenido", lambda e: _dialogo_contenido(e.args))
