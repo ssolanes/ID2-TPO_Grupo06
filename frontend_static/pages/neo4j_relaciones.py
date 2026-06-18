@@ -138,6 +138,28 @@ def _dialogo_crear_relacion():
             )
     dlg.open()
 
+
+def _cargar_labels():
+    return neo4j_query("""
+        MATCH (n)
+        UNWIND labels(n) AS label
+        RETURN label, count(*) AS cantidad
+        ORDER BY label
+    """)
+
+
+def _cargar_relaciones():
+    return neo4j_query("""
+        MATCH (a)-[r]->(b)
+        RETURN labels(a)[0] AS origen_tipo,
+               coalesce(a.nombre, a.modelo, a.mongo_id, '-') AS origen,
+               type(r) AS relacion,
+               labels(b)[0] AS destino_tipo,
+               coalesce(b.nombre, b.modelo, b.mongo_id, '-') AS destino
+        ORDER BY origen_tipo, relacion, destino_tipo
+        LIMIT 250
+    """)
+
     
 # ─── Página principal ─────────────────────────────────────────────────────────
 
@@ -158,6 +180,10 @@ def page_neo4j():
                     ui.html(f'<div class="wrc-label">Base de datos de grafos · '
                             f'<span style="color:{BLUE};">bolt://localhost:7687</span></div>')
                 with ui.row().classes("gap-2"):
+                    ui.button("↻  Refrescar", on_click=lambda: refrescar()).props("unelevated").style(
+                        f"background:{CARD2}; color:{GREEN}; font-family:Courier New; font-weight:bold; "
+                        f"border:1px solid {GREEN};"
+                    )
                     ui.button("＋  Crear nodo", on_click=_dialogo_crear_nodo).props("unelevated").style(
                         f"background:{BLUE}; color:white; font-family:Courier New; font-weight:bold;"
                     )
@@ -169,7 +195,53 @@ def page_neo4j():
             ui.separator().style(f"background:{BORDER}; margin:8px 0 16px 0;")
 
             tabla_contenedor = ui.column().classes("w-full")
-           
 
+            def refrescar():
+                tabla_contenedor.clear()
+                with tabla_contenedor:
+                    try:
+                        labels = _cargar_labels()
+                        relaciones = _cargar_relaciones()
+                    except Exception as e:
+                        ui.notify(f"Error Neo4j: {e}", type="negative")
+                        ui.label(str(e)).style(
+                            f"font-family:'Courier New',monospace; color:{RED}; font-size:0.8rem;"
+                        )
+                        return
+
+                    with ui.grid(columns=4).classes("w-full").style(
+                        "gap:12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));"
+                    ):
+                        if not labels:
+                            ui.label("Sin nodos cargados.").style(
+                                f"font-family:'Courier New',monospace; color:{GREY}; font-size:0.82rem;"
+                            )
+                        for item in labels:
+                            with ui.column().style(
+                                f"background:{CARD}; border:1px solid {BORDER}; border-radius:8px; "
+                                f"padding:12px; gap:4px;"
+                            ):
+                                ui.label(item.get("label", "-")).style(
+                                    f"font-family:'Courier New',monospace; color:{BLUE}; "
+                                    f"font-size:0.8rem; font-weight:bold;"
+                                )
+                                ui.label(str(item.get("cantidad", 0))).style(
+                                    f"font-family:'Courier New',monospace; color:{WHITE}; "
+                                    f"font-size:1.5rem; font-weight:bold;"
+                                )
+
+                    ui.html(f'<div class="section-label">RELACIONES</div>')
+                    columnas = [
+                        {"name": "origen_tipo", "label": "ORIGEN TIPO", "field": "origen_tipo", "sortable": True, "align": "left", "style": f"color:{BLUE}; font-weight:bold;"},
+                        {"name": "origen",      "label": "ORIGEN",      "field": "origen",      "sortable": True, "align": "left", "style": f"color:{WHITE}; font-weight:bold;"},
+                        {"name": "relacion",    "label": "RELACIÓN",    "field": "relacion",    "sortable": True, "align": "center", "style": f"color:{GOLD}; font-weight:bold;"},
+                        {"name": "destino_tipo","label": "DESTINO TIPO","field": "destino_tipo","sortable": True, "align": "left", "style": f"color:{BLUE}; font-weight:bold;"},
+                        {"name": "destino",     "label": "DESTINO",     "field": "destino",     "sortable": True, "align": "left", "style": f"color:{WHITE}; font-weight:bold;"},
+                    ]
+                    ui.table(columns=columnas, rows=relaciones, row_key="origen").style(
+                        f"background:{CARD}; border:1px solid {BORDER}; border-radius:10px; width:100%;"
+                    ).props("flat dark")
+
+            refrescar()
 
 

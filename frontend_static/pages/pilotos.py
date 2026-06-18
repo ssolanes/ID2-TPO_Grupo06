@@ -3,6 +3,9 @@
 
 from nicegui import ui
 from bson import ObjectId
+from datetime import datetime, timezone
+import re
+from uuid import uuid4
 from frontend_static.shared import (
     mongo_col, neo4j_query, sidebar, GLOBAL_CSS, get_query_id,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL
@@ -42,6 +45,18 @@ def _cargar_filas():
 
 def _nombre_completo(doc: dict) -> str:
     return f'{doc.get("nombre", "")} {doc.get("apellido", "")}'.strip()
+
+
+def _slug(texto: str) -> str:
+    limpio = re.sub(r"[^a-z0-9]+", "_", texto.lower()).strip("_")
+    return limpio or uuid4().hex[:8]
+
+
+def _id_disponible(coleccion: str, prefijo: str, base: str) -> str:
+    candidato = f"{prefijo}_{_slug(base)}"
+    if not mongo_col(coleccion).find_one({"_id": candidato}):
+        return candidato
+    return f"{candidato}_{uuid4().hex[:6]}"
 
 
 def _buscar_doc(nombre_coleccion: str, doc_id: str):
@@ -157,6 +172,39 @@ def _sincronizar_piloto_neo4j(mongo_id: str, piloto: dict):
         )
 
 
+def _sincronizar_alta_completa_neo4j(datos: dict):
+    _sincronizar_piloto_neo4j(datos["piloto_id"], datos["piloto"])
+
+    neo4j_query("""
+        MATCH (e:Equipo {mongo_id: $equipo_id})
+        MATCH (v:Vehiculo {mongo_id: $vehiculo_id})
+        MERGE (e)-[:USA]->(v)
+    """, {
+        "equipo_id": datos["equipo_id"],
+        "vehiculo_id": datos["vehiculo_id"],
+    })
+    neo4j_query("""
+        MERGE (s:Patrocinador {mongo_id: $sponsor_id})
+        MATCH (e:Equipo {mongo_id: $equipo_id})
+        SET s.nombre = $sponsor_nombre,
+            s.industria = $sponsor_tipo
+        MERGE (s)-[:PATROCINA]->(e)
+    """, {
+        "sponsor_id": datos["sponsor_id"],
+        "sponsor_nombre": datos["sponsor"]["nombre"],
+        "sponsor_tipo": datos["sponsor"]["tipo"],
+        "equipo_id": datos["equipo_id"],
+    })
+    neo4j_query("""
+        MATCH (c:Copiloto {mongo_id: $copiloto_id})
+        MATCH (v:Vehiculo {mongo_id: $vehiculo_id})
+        MERGE (c)-[:ASISTE_EN]->(v)
+    """, {
+        "copiloto_id": datos["copiloto_id"],
+        "vehiculo_id": datos["vehiculo_id"],
+    })
+
+
 # ─── Dialogo CREAR / EDITAR ──────────────────────────────────────────────────
 
 def _dialogo_piloto(tabla, doc_id: str = None):
@@ -254,6 +302,198 @@ def _dialogo_piloto(tabla, doc_id: str = None):
     dlg.open()
 
 
+def _dialogo_alta_completa(tabla):
+    sufijo = uuid4().hex[:5]
+    nombre_base = f"Rally Nova {sufijo.upper()}"
+
+    defaults = {
+        "piloto_nombre": "Nuevo",
+        "piloto_apellido": f"Piloto {sufijo.upper()}",
+        "piloto_pais": "Argentina",
+        "numero_auto": 40 + int(sufijo[:2], 16) % 50,
+        "equipo_nombre": f"{nombre_base} Team",
+        "equipo_pais": "Argentina",
+        "director": "Director Deportivo",
+        "copiloto_nombre": "Nuevo",
+        "copiloto_apellido": f"Copiloto {sufijo.upper()}",
+        "sponsor_nombre": f"{nombre_base} Energy",
+        "sponsor_tipo": "principal",
+        "vehiculo_marca": "Toyota",
+        "vehiculo_modelo": f"GR Yaris Rally1 {sufijo.upper()}",
+    }
+
+    with ui.dialog().props("persistent") as dlg, \
+         ui.card().style(f"background:{CARD}; border:1px solid {BORDER}; min-width:720px; max-height:85vh; overflow-y:auto;"):
+
+        with ui.row().classes("w-full items-center justify-between").style("margin-bottom:8px;"):
+            ui.html(
+                f'<span style="font-family:Courier New;font-size:1.1rem;'
+                f'font-weight:bold;color:{RED};">＋  Alta completa editable</span>'
+            )
+            ui.button(icon="close", on_click=dlg.close).props("flat round dense").style(f"color:{GREY};")
+
+        ui.separator().style(f"background:{BORDER};")
+
+        def lbl(texto):
+            ui.html(f'<div class="section-label">{texto}</div>')
+
+        lbl("PILOTO")
+        with ui.grid(columns=4).classes("w-full gap-2"):
+            inp_piloto_nombre = ui.input("Nombre", value=defaults["piloto_nombre"]).props("outlined dark dense")
+            inp_piloto_apellido = ui.input("Apellido", value=defaults["piloto_apellido"]).props("outlined dark dense")
+            inp_piloto_pais = ui.input("País", value=defaults["piloto_pais"]).props("outlined dark dense")
+            inp_numero = ui.number("N° auto", value=defaults["numero_auto"], format="%.0f").props("outlined dark dense")
+
+        lbl("EQUIPO Y SPONSOR")
+        with ui.grid(columns=2).classes("w-full gap-2"):
+            inp_equipo_nombre = ui.input("Equipo", value=defaults["equipo_nombre"]).props("outlined dark dense")
+            inp_equipo_pais = ui.input("País base", value=defaults["equipo_pais"]).props("outlined dark dense")
+            inp_director = ui.input("Director", value=defaults["director"]).props("outlined dark dense")
+            inp_sponsor_nombre = ui.input("Sponsor", value=defaults["sponsor_nombre"]).props("outlined dark dense")
+            inp_sponsor_tipo = ui.select(["principal", "tecnico", "oficial"], value=defaults["sponsor_tipo"], label="Tipo sponsor").props("outlined dark dense")
+
+        lbl("COPILOTO Y VEHÍCULO")
+        with ui.grid(columns=2).classes("w-full gap-2"):
+            inp_copiloto_nombre = ui.input("Nombre copiloto", value=defaults["copiloto_nombre"]).props("outlined dark dense")
+            inp_copiloto_apellido = ui.input("Apellido copiloto", value=defaults["copiloto_apellido"]).props("outlined dark dense")
+            inp_vehiculo_marca = ui.input("Marca vehículo", value=defaults["vehiculo_marca"]).props("outlined dark dense")
+            inp_vehiculo_modelo = ui.input("Modelo vehículo", value=defaults["vehiculo_modelo"]).props("outlined dark dense")
+
+        lbl("IDS GENERADOS")
+        with ui.grid(columns=2).classes("w-full gap-2"):
+            inp_piloto_id = ui.input("piloto_id", value=_id_disponible("pilotos", "piloto", f'{defaults["piloto_nombre"]}_{defaults["piloto_apellido"]}')).props("outlined dark dense")
+            inp_equipo_id = ui.input("equipo_id", value=_id_disponible("equipos", "eq", defaults["equipo_nombre"])).props("outlined dark dense")
+            inp_copiloto_id = ui.input("copiloto_id", value=_id_disponible("copiloto", "copiloto", f'{defaults["copiloto_nombre"]}_{defaults["copiloto_apellido"]}')).props("outlined dark dense")
+            inp_vehiculo_id = ui.input("vehiculo_id", value=_id_disponible("vehiculos", "veh", defaults["vehiculo_modelo"])).props("outlined dark dense")
+            inp_sponsor_id = ui.input("sponsor_id", value=_id_disponible("patrocinador", "sponsor", defaults["sponsor_nombre"])).props("outlined dark dense")
+
+        ui.separator().style(f"background:{BORDER}; margin:8px 0;")
+
+        def guardar():
+            piloto_id = inp_piloto_id.value.strip()
+            equipo_id = inp_equipo_id.value.strip()
+            copiloto_id = inp_copiloto_id.value.strip()
+            vehiculo_id = inp_vehiculo_id.value.strip()
+            sponsor_id = inp_sponsor_id.value.strip()
+            ids = [
+                ("pilotos", piloto_id),
+                ("equipos", equipo_id),
+                ("copiloto", copiloto_id),
+                ("vehiculos", vehiculo_id),
+                ("patrocinador", sponsor_id),
+            ]
+            if any(not valor for _, valor in ids):
+                ui.notify("Completá todos los IDs generados", type="warning")
+                return
+            existentes = [valor for coleccion, valor in ids if mongo_col(coleccion).find_one({"_id": valor})]
+            if existentes:
+                ui.notify(f"Ya existen estos IDs: {', '.join(existentes)}", type="warning")
+                return
+
+            sponsor = {
+                "_id": sponsor_id,
+                "nombre": inp_sponsor_nombre.value.strip(),
+                "tipo": inp_sponsor_tipo.value,
+                "pais_origen": inp_equipo_pais.value.strip(),
+                "activo": True,
+            }
+            copiloto = {
+                "_id": copiloto_id,
+                "nombre": inp_copiloto_nombre.value.strip(),
+                "apellido": inp_copiloto_apellido.value.strip(),
+                "pais": {"codigo": "", "nombre": inp_piloto_pais.value.strip()},
+                "equipo_id": equipo_id,
+                "piloto_id": piloto_id,
+                "años_experiencia": 0,
+                "idiomas": ["español"],
+                "estado": "activo",
+            }
+            vehiculo = {
+                "_id": vehiculo_id,
+                "marca": inp_vehiculo_marca.value.strip(),
+                "modelo": inp_vehiculo_modelo.value.strip(),
+                "anio": 2026,
+                "equipo_id": equipo_id,
+                "tipo_combustible": "hibrido",
+                "motor": {
+                    "hp": 500,
+                    "velocidad_punta_kmh": 210,
+                    "cilindrada_cc": 1600,
+                    "torque_nm": 500,
+                },
+                "configuracion": {
+                    "traccion": "4WD",
+                    "transmision": "secuencial",
+                    "suspension": "rally",
+                },
+                "estado_mecanico": {
+                    "ok": True,
+                    "falla_activa": None,
+                    "ultima_revision": datetime.now(timezone.utc),
+                },
+            }
+            equipo = {
+                "_id": equipo_id,
+                "nombre": inp_equipo_nombre.value.strip(),
+                "pais_base": inp_equipo_pais.value.strip(),
+                "director": inp_director.value.strip(),
+                "jefe_ingenieria_id": "",
+                "pilotos_ids": [piloto_id],
+                "copilotos_ids": [copiloto_id],
+                "vehiculos_ids": [vehiculo_id],
+                "patrocinadores_ids": [sponsor_id],
+                "activo": True,
+            }
+            piloto = {
+                "_id": piloto_id,
+                "nombre": inp_piloto_nombre.value.strip(),
+                "apellido": inp_piloto_apellido.value.strip(),
+                "pais": {"nombre": inp_piloto_pais.value.strip()},
+                "numero_auto": int(inp_numero.value or 0),
+                "equipo_id": equipo_id,
+                "copiloto_id": copiloto_id,
+                "vehiculo_id": vehiculo_id,
+                "estado": "activo",
+                "sponsors": [sponsor_id],
+                "estadisticas": {
+                    "puntos": 0,
+                    "victorias": 0,
+                    "podios": 0,
+                    "rallies_disputados": 0,
+                },
+            }
+
+            try:
+                mongo_col("patrocinador").insert_one(sponsor)
+                mongo_col("copiloto").insert_one(copiloto)
+                mongo_col("vehiculos").insert_one(vehiculo)
+                mongo_col("equipos").insert_one(equipo)
+                mongo_col("pilotos").insert_one(piloto)
+                _sincronizar_alta_completa_neo4j({
+                    "piloto_id": piloto_id,
+                    "equipo_id": equipo_id,
+                    "copiloto_id": copiloto_id,
+                    "vehiculo_id": vehiculo_id,
+                    "sponsor_id": sponsor_id,
+                    "piloto": piloto,
+                    "sponsor": sponsor,
+                })
+                ui.notify("Alta completa creada en MongoDB y Neo4j ✓", type="positive")
+                dlg.close()
+                tabla.rows = _cargar_filas()
+                tabla.update()
+            except Exception as e:
+                ui.notify(f"Error creando alta completa: {e}", type="negative")
+
+        with ui.row().classes("w-full justify-end gap-2"):
+            ui.button("Cancelar", on_click=dlg.close).props("flat").style(f"color:{GREY};")
+            ui.button("Crear todo", on_click=guardar).props("unelevated").style(
+                f"background:{RED}; color:white; font-family:Courier New; font-weight:bold;"
+            )
+
+    dlg.open()
+
+
 def _confirmar_eliminar(tabla, doc_id: str, nombre: str):
     col = mongo_col("pilotos")
     with ui.dialog().props("persistent") as dlg, \
@@ -299,11 +539,17 @@ def page_pilotos():
                 with ui.column().style("gap:2px;"):
                     ui.html(f'<div class="wrc-title" style="font-size:1.6rem;">PILOTOS</div>')
                     ui.html(f'<div class="wrc-label">Colección MongoDB: <span style="color:{GREEN};">pilotos</span></div>')
-                ui.button("＋  Nuevo piloto",
-                          on_click=lambda: _dialogo_piloto(tabla)
-                ).props("unelevated").style(
-                    f"background:{RED}; color:white; font-family:Courier New; font-weight:bold;"
-                )
+                with ui.row().classes("gap-2"):
+                    ui.button("＋  Alta completa",
+                              on_click=lambda: _dialogo_alta_completa(tabla)
+                    ).props("unelevated").style(
+                        f"background:{BLUE}; color:white; font-family:Courier New; font-weight:bold;"
+                    )
+                    ui.button("＋  Nuevo piloto",
+                              on_click=lambda: _dialogo_piloto(tabla)
+                    ).props("unelevated").style(
+                        f"background:{RED}; color:white; font-family:Courier New; font-weight:bold;"
+                    )
 
             ui.separator().style(f"background:{BORDER}; margin:8px 0 16px 0;")
 
