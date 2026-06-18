@@ -2,10 +2,10 @@
 # CRUD completo de noticias y reportes · MongoDB
 
 from nicegui import ui
-from bson import ObjectId
 from datetime import datetime, timezone
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
+    sync_neo_node_from_doc, delete_neo_node_from_doc,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL
 )
 
@@ -24,7 +24,6 @@ def _doc_a_fila(doc: dict) -> dict:
         "_id":       str(doc.get("_id", "")),
         "titular":   doc.get("titular", "—"),
         "tipo":      doc.get("tipo", "—"),
-        "rally_id":  doc.get("rally_id", "—"),
         "fecha":     fecha_str,
         "contenido": contenido_corto,
         "tags":      tags_str,
@@ -80,7 +79,6 @@ def _dialogo_noticia(tabla, doc_id: str = None):
         lbl("DATOS GENERALES")
         with ui.grid(columns=2).classes("w-full gap-2"):
             inp_titular = ui.input("Titular", value=doc.get("titular", "")).props("outlined dark dense").classes("col-span-2")
-            inp_rally   = ui.input("rally_id", value=doc.get("rally_id", "")).props("outlined dark dense")
             inp_fecha   = ui.input("Fecha (AAAA-MM-DD)", value=fecha_not_str).props("outlined dark dense")
             inp_tipo    = ui.select(["incidente", "clima", "preview", "post_rally", "otro"], value=doc.get("tipo", "incidente"), label="Tipo de Reporte").props("outlined dark dense")
             inp_fuente  = ui.input("Fuente", value=doc.get("fuente", "FIA Official Media")).props("outlined dark dense")
@@ -104,7 +102,6 @@ def _dialogo_noticia(tabla, doc_id: str = None):
             nuevo = {
                 "titular":   inp_titular.value.strip(),
                 "tipo":      inp_tipo.value,
-                "rally_id":  inp_rally.value.strip(),
                 "contenido": inp_contenido.value.strip(),
                 "etiquetas": tags_list,
                 "fuente":    inp_fuente.value.strip(),
@@ -117,11 +114,16 @@ def _dialogo_noticia(tabla, doc_id: str = None):
 
             try:
                 if doc_id:
-                    col.update_one({"_id": get_query_id(doc_id)}, {"$set": nuevo})
-                    ui.notify("Reporte actualizado ✓", type="positive")
+                    col.update_one(
+                        {"_id": get_query_id(doc_id)},
+                        {"$set": nuevo, "$unset": {"rally_id": ""}},
+                    )
+                    sync_neo_node_from_doc("NoticiaReporte", doc_id)
+                    ui.notify("Reporte actualizado en MongoDB y Neo4j ✓", type="positive")
                 else:
-                    col.insert_one(nuevo)
-                    ui.notify("Reporte creado ✓", type="positive")
+                    result = col.insert_one(nuevo)
+                    sync_neo_node_from_doc("NoticiaReporte", str(result.inserted_id))
+                    ui.notify("Reporte creado en MongoDB y Neo4j ✓", type="positive")
                 dlg.close()
                 tabla.rows = _cargar_filas()
                 tabla.update()
@@ -148,6 +150,7 @@ def _confirmar_eliminar(tabla, doc_id: str, nombre: str):
             def eliminar():
                 try:
                     col.delete_one({"_id": get_query_id(doc_id)})
+                    delete_neo_node_from_doc("NoticiaReporte", doc_id)
                     ui.notify("Reporte eliminado", type="warning")
                     dlg.close()
                     tabla.rows = _cargar_filas()
@@ -184,7 +187,6 @@ def page_noticias_reportes():
             columnas = [
                 {"name": "titular",   "label": "TITULAR",      "field": "titular",     "sortable": True,  "align": "left",   "style": f"color:{WHITE}; font-weight:bold; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"},
                 {"name": "tipo",      "label": "TIPO",         "field": "tipo",        "sortable": True,  "align": "center"},
-                {"name": "rally_id",  "label": "RALLY ID",     "field": "rally_id",    "sortable": True,  "align": "left",   "style": f"color:{GREY};"},
                 {"name": "fecha",     "label": "FECHA",        "field": "fecha",       "sortable": True,  "align": "left",   "style": f"color:{GREY};"},
                 {"name": "contenido", "label": "CONTENIDO",    "field": "contenido",   "sortable": False, "align": "left",   "style": f"color:{GREY}; font-size:0.8rem; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"},
                 {"name": "tags",      "label": "ETIQUETAS",    "field": "tags",        "sortable": False, "align": "left",   "style": f"color:{GREEN}; font-size:0.8rem;"},

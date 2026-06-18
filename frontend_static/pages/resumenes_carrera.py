@@ -2,11 +2,10 @@
 # CRUD completo de resumenes de carrera · MongoDB
 
 from nicegui import ui
-from bson import ObjectId
 from datetime import datetime, timezone
-import json
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
+    sync_neo_node_from_doc, delete_neo_node_from_doc,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL
 )
 
@@ -15,22 +14,26 @@ def _doc_a_fila(doc: dict) -> dict:
     fecha_gen = doc.get("fecha_generacion")
     fecha_str = fecha_gen.strftime("%Y-%m-%d") if isinstance(fecha_gen, datetime) else str(fecha_gen) if fecha_gen else "—"
     
-    podio = doc.get("podio", [])
-    podio_parts = []
-    for p in podio:
-        podio_parts.append(f'P{p.get("puesto", "?")}: {p.get("pilot_id", "—")} ({p.get("tiempo_total", "")})')
-    podio_str = " | ".join(podio_parts) if podio_parts else "—"
-
     incidentes = doc.get("incidentes", [])
-    inc_str = f"{len(incidentes)} incidentes registrados"
+    if isinstance(incidentes, list):
+        inc_str = f"{len(incidentes)} incidentes registrados" if incidentes else "—"
+    else:
+        inc_str = str(incidentes)[:80] if incidentes else "—"
 
     claves = doc.get("claves", [])
     claves_str = ", ".join(claves) if isinstance(claves, list) else str(claves)
 
+    podio = doc.get("podio", [])
+    if isinstance(podio, list):
+        podio_str = ", ".join(p.get("piloto", p.get("pilot_id", "")) for p in podio if isinstance(p, dict))
+    else:
+        podio_str = str(podio)
+
     return {
         "_id":        str(doc.get("_id", "")),
-        "rally_id":   doc.get("rally_id", "—"),
+        "titulo":     doc.get("titulo", doc.get("rally_nombre", doc.get("rally_id", "Resumen"))),
         "fecha_gen":  fecha_str,
+        "ganador":    doc.get("ganador", "—"),
         "podio":      podio_str,
         "incidentes": inc_str,
         "claves":     claves_str,
@@ -66,23 +69,16 @@ def _dialogo_resumen(tabla, doc_id: str = None):
     fecha_gen = doc.get("fecha_generacion")
     fecha_gen_str = fecha_gen.strftime("%Y-%m-%d") if isinstance(fecha_gen, datetime) else str(fecha_gen) if fecha_gen else ""
 
-    podio_default = json.dumps([
-        {"pilot_id": "piloto_moretti", "puesto": 1, "tiempo_total": "3:24:15.320"},
-        {"pilot_id": "piloto_benitez", "puesto": 2, "tiempo_total": "3:24:48.711"},
-        {"pilot_id": "piloto_tanaka", "puesto": 3, "tiempo_total": "3:25:10.004"}
-    ], indent=2)
-
-    incidentes_default = json.dumps([
-        {
-            "specialstage_id": "rally_fin_2026_ss4",
-            "tipo": "falla_mecanica",
-            "descripcion": "Descripción del incidente aquí..."
-        }
-    ], indent=2)
-
-    podio_val = json.dumps(doc.get("podio", []), indent=2) if doc.get("podio") else podio_default
-    incidentes_val = json.dumps(doc.get("incidentes", []), indent=2) if doc.get("incidentes") else incidentes_default
-    abandons_val = json.dumps(doc.get("abandons", []), indent=2) if doc.get("abandons") else "[]"
+    podio_actual = doc.get("podio", [])
+    if isinstance(podio_actual, list):
+        podio_val = ", ".join(p.get("piloto", p.get("pilot_id", "")) for p in podio_actual if isinstance(p, dict))
+    else:
+        podio_val = str(podio_actual)
+    incidentes_actual = doc.get("incidentes", "")
+    if isinstance(incidentes_actual, list):
+        incidentes_val = "; ".join(i.get("descripcion", str(i)) for i in incidentes_actual if isinstance(i, dict))
+    else:
+        incidentes_val = str(incidentes_actual)
 
     with ui.dialog().props("persistent") as dlg, \
          ui.card().style(f"background:{CARD}; border:1px solid {BORDER}; min-width:680px; max-height:85vh; overflow-y:auto;"):
@@ -102,22 +98,16 @@ def _dialogo_resumen(tabla, doc_id: str = None):
 
         lbl("DATOS GENERALES")
         with ui.grid(columns=2).classes("w-full gap-2"):
-            inp_rally = ui.input("rally_id", value=doc.get("rally_id", "")).props("outlined dark dense")
+            inp_titulo = ui.input("Título", value=doc.get("titulo", doc.get("rally_nombre", ""))).props("outlined dark dense")
             inp_fecha = ui.input("Fecha Generación (AAAA-MM-DD)", value=fecha_gen_str).props("outlined dark dense")
+            inp_ganador = ui.input("Ganador", value=doc.get("ganador", "")).props("outlined dark dense")
 
-        lbl("PODIO (JSON)")
-        inp_podio = ui.textarea(value=podio_val).style(
-            f"width:100%; font-family:Courier New; font-size:0.8rem; background:{CARD2}; color:{GREEN}; border:1px solid {BORDER}; border-radius:6px; padding:10px; min-height:100px;"
-        ).props("outlined dark")
+        lbl("PODIO")
+        inp_podio = ui.input("Pilotos del podio (separados por coma)", value=podio_val).props("outlined dark dense").classes("w-full")
 
-        lbl("ABANDONOS (JSON)")
-        inp_abandons = ui.textarea(value=abandons_val).style(
-            f"width:100%; font-family:Courier New; font-size:0.8rem; background:{CARD2}; color:{GREEN}; border:1px solid {BORDER}; border-radius:6px; padding:10px; min-height:60px;"
-        ).props("outlined dark")
-
-        lbl("INCIDENTES (JSON)")
+        lbl("INCIDENTES")
         inp_incidentes = ui.textarea(value=incidentes_val).style(
-            f"width:100%; font-family:Courier New; font-size:0.8rem; background:{CARD2}; color:{GREEN}; border:1px solid {BORDER}; border-radius:6px; padding:10px; min-height:100px;"
+            f"width:100%; font-family:Courier New; font-size:0.82rem; background:{CARD2}; color:{WHITE}; border:1px solid {BORDER}; border-radius:6px; padding:10px; min-height:90px;"
         ).props("outlined dark")
 
         lbl("PALABRAS CLAVE (separadas por coma)")
@@ -130,31 +120,17 @@ def _dialogo_resumen(tabla, doc_id: str = None):
         def guardar():
             f_gen = _parse_fecha(inp_fecha.value)
             
-            try:
-                podio_parsed = json.loads(inp_podio.value)
-            except Exception:
-                ui.notify("Error de formato JSON en Podio", type="negative")
-                return
-
-            try:
-                abandons_parsed = json.loads(inp_abandons.value)
-            except Exception:
-                ui.notify("Error de formato JSON en Abandonos", type="negative")
-                return
-
-            try:
-                incidentes_parsed = json.loads(inp_incidentes.value)
-            except Exception:
-                ui.notify("Error de formato JSON en Incidentes", type="negative")
-                return
-
             claves_list = [c.strip() for c in inp_claves.value.split(",") if c.strip()]
+            podio_list = [
+                {"puesto": idx, "piloto": piloto}
+                for idx, piloto in enumerate([p.strip() for p in inp_podio.value.split(",") if p.strip()], start=1)
+            ]
 
             nuevo = {
-                "rally_id":   inp_rally.value.strip(),
-                "podio":      podio_parsed,
-                "abandons":   abandons_parsed,
-                "incidentes": incidentes_parsed,
+                "titulo":     inp_titulo.value.strip(),
+                "ganador":    inp_ganador.value.strip(),
+                "podio":      podio_list,
+                "incidentes": inp_incidentes.value.strip(),
                 "claves":     claves_list,
             }
             
@@ -165,11 +141,16 @@ def _dialogo_resumen(tabla, doc_id: str = None):
 
             try:
                 if doc_id:
-                    col.update_one({"_id": get_query_id(doc_id)}, {"$set": nuevo})
-                    ui.notify("Resumen de carrera actualizado ✓", type="positive")
+                    col.update_one(
+                        {"_id": get_query_id(doc_id)},
+                        {"$set": nuevo, "$unset": {"rally_id": "", "abandons": ""}},
+                    )
+                    sync_neo_node_from_doc("ResumenCarrera", doc_id)
+                    ui.notify("Resumen de carrera actualizado en MongoDB y Neo4j ✓", type="positive")
                 else:
-                    col.insert_one(nuevo)
-                    ui.notify("Resumen de carrera creado ✓", type="positive")
+                    result = col.insert_one(nuevo)
+                    sync_neo_node_from_doc("ResumenCarrera", str(result.inserted_id))
+                    ui.notify("Resumen de carrera creado en MongoDB y Neo4j ✓", type="positive")
                 dlg.close()
                 tabla.rows = _cargar_filas()
                 tabla.update()
@@ -190,12 +171,13 @@ def _confirmar_eliminar(tabla, doc_id: str, nombre: str):
     with ui.dialog().props("persistent") as dlg, \
          ui.card().style(f"background:{CARD}; border:1px solid {BORDER};"):
         ui.html(f'<div style="font-family:Courier New;color:{WHITE};font-size:1rem;">'
-                f'¿Eliminar resumen de carrera para rally <b style="color:{RED};">{nombre}</b>?</div>')
+                f'¿Eliminar resumen <b style="color:{RED};">{nombre}</b>?</div>')
         with ui.row().classes("w-full justify-end gap-2").style("margin-top:12px;"):
             ui.button("Cancelar", on_click=dlg.close).props("flat").style(f"color:{GREY};")
             def eliminar():
                 try:
                     col.delete_one({"_id": get_query_id(doc_id)})
+                    delete_neo_node_from_doc("ResumenCarrera", doc_id)
                     ui.notify("Resumen eliminado", type="warning")
                     dlg.close()
                     tabla.rows = _cargar_filas()
@@ -230,8 +212,9 @@ def page_resumenes_carrera():
             ui.separator().style(f"background:{BORDER}; margin:8px 0 16px 0;")
 
             columnas = [
-                {"name": "rally_id",   "label": "RALLY ID",     "field": "rally_id",    "sortable": True,  "align": "left",   "style": f"color:{WHITE}; font-weight:bold;"},
+                {"name": "titulo",     "label": "TÍTULO",       "field": "titulo",      "sortable": True,  "align": "left",   "style": f"color:{WHITE}; font-weight:bold;"},
                 {"name": "fecha_gen",  "label": "F. GENERACIÓN","field": "fecha_gen",   "sortable": True,  "align": "left",   "style": f"color:{GREY};"},
+                {"name": "ganador",    "label": "GANADOR",      "field": "ganador",     "sortable": True,  "align": "left",   "style": f"color:{GOLD};"},
                 {"name": "podio",      "label": "PODIO",        "field": "podio",       "sortable": False, "align": "left",   "style": f"color:{GOLD}; font-size:0.85rem;"},
                 {"name": "incidentes", "label": "INCIDENTES",   "field": "incidentes",  "sortable": False, "align": "left",   "style": f"color:{GREY};"},
                 {"name": "claves",     "label": "CLAVES",       "field": "claves",      "sortable": False, "align": "left",   "style": f"color:{GREY};"},
@@ -257,4 +240,4 @@ def page_resumenes_carrera():
 
             tabla.on("editar",   lambda e: _dialogo_resumen(tabla, e.args.get("_id")))
             tabla.on("eliminar", lambda e: _confirmar_eliminar(
-                tabla, e.args.get("_id"), e.args.get("rally_id", "?")))
+                tabla, e.args.get("_id"), e.args.get("titulo", "?")))

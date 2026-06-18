@@ -2,45 +2,27 @@
 # CRUD completo de vehículos · MongoDB
 
 from nicegui import ui
-from bson import ObjectId
-from datetime import datetime, timezone
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
+    sync_neo_node_from_doc, delete_neo_node_from_doc,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL
 )
 
 
 def _doc_a_fila(doc: dict) -> dict:
-    motor = doc.get("motor", {})
-    motor_str = f'{motor.get("hp", "—")} HP / {motor.get("velocidad_punta_kmh", "—")} km/h'
     config = doc.get("configuracion", {})
     traccion = config.get("traccion", "—")
-    
     mecanico = doc.get("estado_mecanico", {})
-    revision_date = mecanico.get("ultima_revision")
-    revision_str = revision_date.strftime("%Y-%m-%d") if isinstance(revision_date, datetime) else str(revision_date) if revision_date else "—"
-    
-    ok = mecanico.get("ok", True)
-    falla = mecanico.get("falla_activa")
-    
-    if ok:
-        estado_str = "OK"
-    else:
-        falla_tipo = falla.get("tipo", "Falla") if isinstance(falla, dict) else "Falla"
-        falla_grav = falla.get("gravedad", "Alta") if isinstance(falla, dict) else "Alta"
-        estado_str = f"{falla_tipo} ({falla_grav})"
+    ok = bool(mecanico.get("ok", True))
 
     return {
         "_id":         str(doc.get("_id", "")),
         "modelo":      f'{doc.get("marca","")} {doc.get("modelo","")}',
-        "equipo":      doc.get("equipo_id", "—"),
         "anio":        doc.get("anio", "—"),
         "combustible": doc.get("tipo_combustible", "—"),
-        "motor":       motor_str,
         "traccion":    traccion,
-        "revision":    revision_str,
         "ok":          ok,
-        "estado_mec":  estado_str,
+        "estado_mec":  "OK" if ok else "Con falla",
     }
 
 
@@ -53,33 +35,17 @@ def _cargar_filas():
         return []
 
 
-def _parse_fecha(fecha_str):
-    if not fecha_str or not fecha_str.strip():
-        return None
-    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
-        try:
-            return datetime.strptime(fecha_str.strip(), fmt).replace(tzinfo=timezone.utc)
-        except ValueError:
-            continue
-    return None
-
-
 def _dialogo_vehiculo(tabla, doc_id: str = None):
     col = mongo_col("vehiculos")
     doc = {}
     if doc_id:
         doc = col.find_one({"_id": get_query_id(doc_id)}) or {}
 
-    motor = doc.get("motor", {})
     config = doc.get("configuracion", {})
     mecanico = doc.get("estado_mecanico", {})
-    falla = mecanico.get("falla_activa") or {}
-    
-    rev_date = mecanico.get("ultima_revision")
-    rev_date_str = rev_date.strftime("%Y-%m-%d") if isinstance(rev_date, datetime) else str(rev_date) if rev_date else ""
 
     with ui.dialog().props("persistent") as dlg, \
-         ui.card().style(f"background:{CARD}; border:1px solid {BORDER}; min-width:640px; max-height:85vh; overflow-y:auto;"):
+         ui.card().style(f"background:{CARD}; border:1px solid {BORDER}; min-width:560px; max-height:85vh; overflow-y:auto;"):
 
         with ui.row().classes("w-full items-center justify-between").style("margin-bottom:8px;"):
             ui.html(
@@ -99,76 +65,40 @@ def _dialogo_vehiculo(tabla, doc_id: str = None):
             inp_marca    = ui.input("Marca",  value=doc.get("marca", "")).props("outlined dark dense")
             inp_modelo   = ui.input("Modelo", value=doc.get("modelo", "")).props("outlined dark dense")
             inp_anio     = ui.number("Año",   value=doc.get("anio", 2026), format="%.0f").props("outlined dark dense")
-            inp_equipo   = ui.input("equipo_id", value=doc.get("equipo_id", "")).props("outlined dark dense")
             inp_combust  = ui.select(["hibrido", "nafta", "diesel", "electrico"], value=doc.get("tipo_combustible", "hibrido"), label="Combustible").props("outlined dark dense")
-
-        lbl("MOTORIZACIÓN")
-        with ui.grid(columns=2).classes("w-full gap-2"):
-            inp_hp       = ui.number("Potencia (HP)",     value=motor.get("hp", 0), format="%.1f").props("outlined dark dense")
-            inp_vel      = ui.number("Velocidad Punta (kmh)", value=motor.get("velocidad_punta_kmh", 0), format="%.1f").props("outlined dark dense")
-            inp_cc       = ui.number("Cilindrada (cc)",   value=motor.get("cilindrada_cc", 0), format="%.0f").props("outlined dark dense")
-            inp_torque   = ui.number("Torque (Nm)",       value=motor.get("torque_nm", 0), format="%.0f").props("outlined dark dense")
-
-        lbl("CONFIGURACIÓN DE CHASIS")
-        with ui.grid(columns=3).classes("w-full gap-2"):
             inp_traccion = ui.input("Tracción (ej: 4WD)", value=config.get("traccion", "4WD")).props("outlined dark dense")
-            inp_trans    = ui.input("Transmisión",        value=config.get("transmision", "")).props("outlined dark dense")
-            inp_susp     = ui.input("Suspensión",         value=config.get("suspension", "")).props("outlined dark dense")
-
-        lbl("ESTADO MECÁNICO")
-        with ui.grid(columns=2).classes("w-full gap-2"):
-            chk_ok       = ui.checkbox("Estado mecánico OK (Sin Fallas)", value=mecanico.get("ok", True)).props("dark dense")
-            inp_rev      = ui.input("Última Revisión (AAAA-MM-DD)", value=rev_date_str).props("outlined dark dense")
-            inp_fallat   = ui.input("Tipo Falla Activa (ej: Motor)", value=falla.get("tipo", "") if isinstance(falla, dict) else "").props("outlined dark dense")
-            inp_fallag   = ui.select(["Baja", "Media", "Alta"], value=falla.get("gravedad", "Media") if isinstance(falla, dict) else "Media", label="Gravedad Falla").props("outlined dark dense")
+            inp_estado   = ui.select(["ok", "con falla"], value="ok" if mecanico.get("ok", True) else "con falla", label="Estado mecánico").props("outlined dark dense")
 
         ui.separator().style(f"background:{BORDER}; margin:8px 0;")
 
         def guardar():
-            f_rev = _parse_fecha(inp_rev.value)
-            
-            falla_dict = None
-            if not chk_ok.value:
-                falla_dict = {
-                    "tipo": inp_fallat.value.strip(),
-                    "gravedad": inp_fallag.value
-                }
-            
+            ok = inp_estado.value == "ok"
             nuevo = {
                 "marca":            inp_marca.value.strip(),
                 "modelo":           inp_modelo.value.strip(),
                 "anio":             int(inp_anio.value or 0),
-                "equipo_id":        inp_equipo.value.strip(),
                 "tipo_combustible": inp_combust.value,
-                "motor": {
-                    "hp":                 float(inp_hp.value or 0),
-                    "velocidad_punta_kmh": float(inp_vel.value or 0),
-                    "cilindrada_cc":      int(inp_cc.value or 0),
-                    "torque_nm":          int(inp_torque.value or 0),
-                },
                 "configuracion": {
                     "traccion":    inp_traccion.value.strip(),
-                    "transmision": inp_trans.value.strip(),
-                    "suspension":  inp_susp.value.strip(),
                 },
                 "estado_mecanico": {
-                    "ok":              chk_ok.value,
-                    "falla_activa":    falla_dict,
+                    "ok": ok,
+                    "falla_activa": None if ok else {"tipo": "General", "gravedad": "Media"},
                 }
             }
-            
-            if f_rev:
-                nuevo["estado_mecanico"]["ultima_revision"] = f_rev
-            elif rev_date:
-                nuevo["estado_mecanico"]["ultima_revision"] = rev_date
 
             try:
                 if doc_id:
-                    col.update_one({"_id": get_query_id(doc_id)}, {"$set": nuevo})
-                    ui.notify("Vehículo actualizado ✓", type="positive")
+                    col.update_one(
+                        {"_id": get_query_id(doc_id)},
+                        {"$set": nuevo, "$unset": {"motor": "", "configuracion.transmision": "", "configuracion.suspension": "", "estado_mecanico.ultima_revision": ""}},
+                    )
+                    sync_neo_node_from_doc("Vehiculo", doc_id)
+                    ui.notify("Vehículo actualizado en MongoDB y Neo4j ✓", type="positive")
                 else:
-                    col.insert_one(nuevo)
-                    ui.notify("Vehículo creado ✓", type="positive")
+                    result = col.insert_one(nuevo)
+                    sync_neo_node_from_doc("Vehiculo", str(result.inserted_id))
+                    ui.notify("Vehículo creado en MongoDB y Neo4j ✓", type="positive")
                 dlg.close()
                 tabla.rows = _cargar_filas()
                 tabla.update()
@@ -195,6 +125,7 @@ def _confirmar_eliminar(tabla, doc_id: str, nombre: str):
             def eliminar():
                 try:
                     col.delete_one({"_id": get_query_id(doc_id)})
+                    delete_neo_node_from_doc("Vehiculo", doc_id)
                     ui.notify("Vehículo eliminado", type="warning")
                     dlg.close()
                     tabla.rows = _cargar_filas()
@@ -230,12 +161,9 @@ def page_vehiculos():
 
             columnas = [
                 {"name": "modelo",     "label": "VEHÍCULO",    "field": "modelo",      "sortable": True,  "align": "left",   "style": f"color:{WHITE}; font-weight:bold;"},
-                {"name": "equipo",     "label": "EQUIPO ID",   "field": "equipo",      "sortable": True,  "align": "left",   "style": f"color:{GREY};"},
                 {"name": "anio",       "label": "AÑO",         "field": "anio",        "sortable": True,  "align": "center", "style": f"color:{GREY};"},
                 {"name": "combustible","label": "COMBUSTIBLE", "field": "combustible", "sortable": True,  "align": "left",   "style": f"color:{GREY};"},
-                {"name": "motor",      "label": "MOTOR (HP/PUNTA)", "field": "motor",   "sortable": False, "align": "left",   "style": f"color:{GREY};"},
                 {"name": "traccion",   "label": "TRACCIÓN",    "field": "traccion",    "sortable": True,  "align": "center", "style": f"color:{GREY};"},
-                {"name": "revision",   "label": "ÚLT. REVISIÓN","field": "revision",   "sortable": True,  "align": "left",   "style": f"color:{GREY};"},
                 {"name": "estado_mec", "label": "ESTADO MECÁNICO", "field": "estado_mec", "sortable": True, "align": "center"},
                 {"name": "acciones",   "label": "ACCIONES",    "field": "acciones",    "sortable": False, "align": "center"},
             ]

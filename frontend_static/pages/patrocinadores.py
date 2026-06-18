@@ -2,9 +2,9 @@
 # CRUD de patrocinadores · MongoDB
 
 from nicegui import ui
-from bson import ObjectId
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
+    sync_neo_node_from_doc, delete_neo_node_from_doc,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK
 )
 
@@ -14,8 +14,6 @@ def _doc_a_fila(doc):
         "_id":         str(doc.get("_id", "")),
         "nombre":      doc.get("nombre", "—"),
         "tipo":        doc.get("tipo", "—"),
-        "pais_origen": doc.get("pais_origen", "—"),
-        "activo":      "Activo" if doc.get("activo", True) else "Inactivo",
     }
 
 
@@ -46,30 +44,29 @@ def _dialogo_patrocinador(tabla, doc_id=None):
         lbl("DATOS DEL PATROCINADOR")
         with ui.grid(columns=2).classes("w-full gap-2"):
             inp_nombre  = ui.input("Nombre comercial",  value=doc.get("nombre", "")).props("outlined dark dense")
-            inp_pais    = ui.input("País de origen",    value=doc.get("pais_origen", "")).props("outlined dark dense")
             inp_tipo    = ui.select(["principal", "tecnico", "otro"],
                                     value=doc.get("tipo", "principal"),
                                     label="Tipo de patrocinio").props("outlined dark dense")
-            inp_activo  = ui.select(["activo","inactivo"],
-                                    value="activo" if doc.get("activo", True) else "inactivo",
-                                    label="Estado").props("outlined dark dense")
 
         ui.separator().style(f"background:{BORDER}; margin:8px 0;")
 
         def guardar():
             nuevo = {
                 "nombre":            inp_nombre.value.strip(),
-                "pais_origen":       inp_pais.value.strip(),
                 "tipo":              inp_tipo.value,
-                "activo":            inp_activo.value == "activo",
             }
             try:
                 if doc_id:
-                    col.update_one({"_id": get_query_id(doc_id)}, {"$set": nuevo})
-                    ui.notify("Patrocinador actualizado ✓", type="positive")
+                    col.update_one(
+                        {"_id": get_query_id(doc_id)},
+                        {"$set": nuevo, "$unset": {"pais_origen": "", "activo": ""}},
+                    )
+                    sync_neo_node_from_doc("Patrocinador", doc_id)
+                    ui.notify("Patrocinador actualizado en MongoDB y Neo4j ✓", type="positive")
                 else:
-                    col.insert_one(nuevo)
-                    ui.notify("Patrocinador creado ✓", type="positive")
+                    result = col.insert_one(nuevo)
+                    sync_neo_node_from_doc("Patrocinador", str(result.inserted_id))
+                    ui.notify("Patrocinador creado en MongoDB y Neo4j ✓", type="positive")
                 dlg.close()
                 tabla.rows = _cargar_filas()
                 tabla.update()
@@ -93,6 +90,7 @@ def _confirmar_eliminar(tabla, doc_id, nombre):
             def eliminar():
                 try:
                     mongo_col("patrocinador").delete_one({"_id": get_query_id(doc_id)})
+                    delete_neo_node_from_doc("Patrocinador", doc_id)
                     ui.notify("Patrocinador eliminado", type="warning")
                     dlg.close()
                     tabla.rows = _cargar_filas()
@@ -126,9 +124,7 @@ def page_patrocinadores():
 
             columnas = [
                 {"name": "nombre",     "label": "PATROCINADOR", "field": "nombre",     "sortable": True, "align": "left",   "style": f"color:{WHITE}; font-weight:bold;"},
-                {"name": "pais_origen","label": "PAÍS ORIGEN",  "field": "pais_origen", "sortable": True, "align": "left",   "style": f"color:{GREY};"},
                 {"name": "tipo",       "label": "TIPO",         "field": "tipo",       "sortable": True, "align": "center"},
-                {"name": "activo",     "label": "ESTADO",       "field": "activo",     "sortable": True, "align": "center"},
                 {"name": "acciones",   "label": "ACCIONES",     "field": "acciones",   "sortable": False,"align": "center"},
             ]
 
@@ -143,13 +139,6 @@ def page_patrocinadores():
                     'badge-green': props.value === 'tecnico',
                     'badge-blue':  props.value === 'oficial'
                   }" style="font-family:Courier New; font-size:0.78rem;">
-                    {{ props.value.toUpperCase() }}
-                  </span>
-                </q-td>
-            """)
-            tabla.add_slot("body-cell-activo", """
-                <q-td :props="props">
-                  <span :class="props.value === 'Activo' ? 'badge-green' : 'badge-red'">
                     {{ props.value.toUpperCase() }}
                   </span>
                 </q-td>

@@ -4,6 +4,7 @@
 from pymongo import MongoClient
 from neo4j import GraphDatabase
 from bson import ObjectId
+from datetime import date, datetime
 
 # ─── MongoDB ────────────────────────────────────────────────────────────────
 _mongo_client = None
@@ -42,6 +43,203 @@ def neo4j_query(cypher: str, params: dict = None):
     with driver.session() as session:
         result = session.run(cypher, params or {})
         return [dict(r) for r in result]
+
+
+# ─── Sincronizacion MongoDB → Neo4j ──────────────────────────────────────────
+
+ENTIDADES_NEO = {
+    "Piloto": {
+        "coleccion": "pilotos",
+        "label": "Piloto",
+        "prop_nombre": "nombre",
+    },
+    "Copiloto": {
+        "coleccion": "copiloto",
+        "label": "Copiloto",
+        "prop_nombre": "nombre",
+    },
+    "Equipo": {
+        "coleccion": "equipos",
+        "label": "Equipo",
+        "prop_nombre": "nombre",
+    },
+    "Vehiculo": {
+        "coleccion": "vehiculos",
+        "label": "Vehiculo",
+        "prop_nombre": "modelo",
+    },
+    "Patrocinador": {
+        "coleccion": "patrocinador",
+        "label": "Patrocinador",
+        "prop_nombre": "nombre",
+    },
+    "JefeIngenieria": {
+        "coleccion": "jefe_ingenieria",
+        "label": "JefeIngenieria",
+        "prop_nombre": "nombre",
+    },
+    "Rally": {
+        "coleccion": "rallies",
+        "label": "Rally",
+        "prop_nombre": "nombre",
+    },
+    "NoticiaReporte": {
+        "coleccion": "noticias_reportes",
+        "label": "NoticiaReporte",
+        "prop_nombre": "titular",
+    },
+    "ResumenCarrera": {
+        "coleccion": "resumenes_carrera",
+        "label": "ResumenCarrera",
+        "prop_nombre": "titulo",
+    },
+}
+
+
+def _nombre_completo(doc: dict) -> str:
+    return f'{doc.get("nombre", "")} {doc.get("apellido", "")}'.strip()
+
+
+def display_doc_neo(tipo: str, doc: dict) -> str:
+    if tipo in ("Piloto", "Copiloto", "JefeIngenieria"):
+        nombre = _nombre_completo(doc)
+    elif tipo == "Vehiculo":
+        nombre = f'{doc.get("marca", "")} {doc.get("modelo", "")}'.strip()
+    elif tipo == "NoticiaReporte":
+        nombre = doc.get("titular", str(doc.get("_id", "")))
+    elif tipo == "ResumenCarrera":
+        nombre = doc.get("titulo", str(doc.get("_id", "")))
+    else:
+        nombre = doc.get("nombre", str(doc.get("_id", "")))
+    return nombre or str(doc.get("_id", ""))
+
+
+def _neo_valor_simple(valor):
+    if isinstance(valor, (str, int, float, bool)):
+        return valor
+    if isinstance(valor, datetime):
+        return valor.isoformat()
+    if isinstance(valor, date):
+        return valor.isoformat()
+    if isinstance(valor, list):
+        simples = [_neo_valor_simple(item) for item in valor]
+        return [item for item in simples if item is not None]
+    return None
+
+
+def props_neo_desde_mongo(tipo: str, doc: dict) -> dict:
+    props = {"mongo_id": str(doc.get("_id", ""))}
+
+    if tipo in ("Piloto", "Copiloto", "JefeIngenieria"):
+        props.update({
+            "nombre": display_doc_neo(tipo, doc),
+            "nombre_pila": doc.get("nombre", ""),
+            "apellido": doc.get("apellido", ""),
+        })
+    elif tipo == "Vehiculo":
+        props.update({
+            "modelo": display_doc_neo(tipo, doc),
+            "marca": doc.get("marca", ""),
+            "anio": doc.get("anio", 0),
+            "tipo_combustible": doc.get("tipo_combustible", ""),
+        })
+    elif tipo == "Equipo":
+        props.update({
+            "nombre": doc.get("nombre", ""),
+            "pais": doc.get("pais_base", ""),
+            "director": doc.get("director", ""),
+        })
+    elif tipo == "Rally":
+        props.update({
+            "nombre": doc.get("nombre", ""),
+            "pais": doc.get("pais", ""),
+            "temporada": doc.get("temporada", 0),
+            "superficie": doc.get("superficie_principal", ""),
+            "campeonato": doc.get("campeonato", ""),
+        })
+    elif tipo == "Patrocinador":
+        props.update({
+            "nombre": doc.get("nombre", ""),
+            "industria": doc.get("tipo", ""),
+        })
+    elif tipo == "NoticiaReporte":
+        props.update({
+            "titular": doc.get("titular", ""),
+            "tipo": doc.get("tipo", ""),
+            "fuente": doc.get("fuente", ""),
+        })
+    elif tipo == "ResumenCarrera":
+        props.update({
+            "titulo": doc.get("titulo", ""),
+            "ganador": doc.get("ganador", ""),
+        })
+
+    pais = doc.get("pais")
+    if isinstance(pais, dict):
+        props["pais"] = pais.get("nombre", "")
+        props["pais_codigo"] = pais.get("codigo", "")
+    elif pais:
+        props["pais"] = str(pais)
+
+    if "estado" in doc:
+        props["estado"] = doc.get("estado")
+    if "activo" in doc:
+        props["activo"] = bool(doc.get("activo"))
+
+    return {
+        clave: simple
+        for clave, valor in props.items()
+        if (simple := _neo_valor_simple(valor)) is not None
+    }
+
+
+def sync_neo_node_from_doc(tipo: str, doc_id: str):
+    meta = ENTIDADES_NEO[tipo]
+    doc = mongo_col(meta["coleccion"]).find_one({"_id": get_query_id(str(doc_id))})
+    if not doc:
+        return False
+
+    label = meta["label"]
+    prop_nombre = meta["prop_nombre"]
+    display = display_doc_neo(tipo, doc)
+    props = props_neo_desde_mongo(tipo, doc)
+    remove_props = []
+    if tipo == "Piloto":
+        remove_props = ["n.estado"]
+    elif tipo == "Copiloto":
+        remove_props = ["n.pais_codigo", "n.estado"]
+    elif tipo == "Patrocinador":
+        remove_props = ["n.pais_origen", "n.activo"]
+    elif tipo == "JefeIngenieria":
+        remove_props = ["n.estado"]
+    elif tipo == "Equipo":
+        remove_props = ["n.activo"]
+    elif tipo == "NoticiaReporte":
+        remove_props = ["n.rally_id"]
+    elif tipo == "ResumenCarrera":
+        remove_props = ["n.rally_id"]
+    remove_clause = f"REMOVE {', '.join(remove_props)}" if remove_props else ""
+
+    neo4j_query(f"""
+        MERGE (n:{label} {{mongo_id: $mongo_id}})
+        SET n += $props,
+            n.{prop_nombre} = $display
+        {remove_clause}
+        RETURN elementId(n) AS id
+    """, {
+        "mongo_id": props["mongo_id"],
+        "props": props,
+        "display": display,
+    })
+    return True
+
+
+def delete_neo_node_from_doc(tipo: str, doc_id: str):
+    meta = ENTIDADES_NEO[tipo]
+    neo4j_query(f"""
+        MATCH (n:{meta["label"]} {{mongo_id: $mongo_id}})
+        DETACH DELETE n
+    """, {"mongo_id": str(doc_id)})
 
 # ─── Paleta WRC ──────────────────────────────────────────────────────────────
 RED    = "#E8002A"

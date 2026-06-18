@@ -1,36 +1,83 @@
 # TPO Ingenieria de Datos 2 - World Rally Cup
 
-Proyecto en Python con NiceGUI para visualizar datos de World Rally Cup usando bases de datos estaticas y bases de datos de tiempo real.
+Proyecto en Python con NiceGUI para administrar datos de World Rally Cup usando MongoDB, Neo4j, Redis y Cassandra.
 
 ## Estado actual
 
-- Frontend selector principal en `run.py`.
-- Frontend estatico en `localhost:8081` para MongoDB y Neo4j.
-- Frontend de tiempo real en `localhost:8082` para Redis y Cassandra.
-- Redis genera y mantiene el estado instantaneo de la carrera.
-- Cassandra persiste el historico a partir de los eventos generados por Redis.
-- MongoDB y Neo4j quedan como modulo estatico
+- `run.py` levanta el selector principal.
+- Datos estaticos en `localhost:8081`: CRUD MongoDB + relaciones Neo4j.
+- Tiempo real en `localhost:8082`: Redis + Cassandra.
+- MongoDB guarda las entidades principales.
+- Al crear o editar entidades desde MongoDB, se crea o actualiza automaticamente su nodo en Neo4j.
+- Neo4j se usa para crear relaciones entre nodos, no para crear nodos manualmente.
+- Redis mantiene el estado vivo de carrera.
+- Cassandra persiste el historico generado desde Redis.
 
-## Cosas que faltan
+## Modelo de datos
 
-- Terminar frontend MongoDB (pulir apartado visual)
-- Frontend de Neo4J
-- Unificar crud de MongoDB y Neo4J
-- Pulir apartado visual de modulo de tiempo real
+### MongoDB
 
-## Separacion de bases de datos
+MongoDB guarda los datos propios de cada entidad:
 
-### Bases de datos estaticas: MongoDB y Neo4j
+- Pilotos.
+- Copilotos.
+- Equipos.
+- Vehiculos.
+- Patrocinadores.
+- Jefes de ingenieria.
+- Rallies.
+- Resumenes de carrera.
+- Noticias y reportes.
 
-Se usan para datos que no cambian constantemente, como pilotos, equipos, rallies, patrocinadores y relaciones. El usuario modifica estos datos mediante pantallas tipo CRUD.
+Los formularios del frontend estan simplificados para cargar solo la informacion necesaria. Las relaciones entre entidades no se cargan en estos formularios.
 
-### Bases de datos no estaticas: Redis y Cassandra
+### Rally en MongoDB
 
-Se usan para datos que cambian durante la carrera.
+La estructura interna del rally queda guardada dentro del documento MongoDB:
 
-Redis guarda el estado vivo:
+- Legs.
+- Special stages.
+- Splits.
 
-- Auto actualmente en tramo.
+Al crear un rally se puede elegir:
+
+- Cantidad de dias / legs.
+- Special stages por dia.
+- Splits por special stage.
+
+Esa estructura no se modela como relaciones Neo4j.
+
+### Neo4j
+
+Neo4j guarda relaciones entre entidades grandes del dominio. Los nodos se crean automaticamente desde MongoDB.
+
+Relaciones disponibles desde el frontend:
+
+- Piloto pertenece a equipo.
+- Piloto conduce vehiculo.
+- Piloto tiene copiloto.
+- Piloto participa en campeonato.
+- Copiloto pertenece a equipo.
+- Copiloto asiste en vehiculo.
+- Copiloto participa en campeonato.
+- Equipo usa vehiculo.
+- Equipo participa en rally.
+- Patrocinador patrocina equipo.
+- Jefe de ingenieria dirige equipo.
+- Temporada tiene campeonato.
+- Campeonato tiene rally.
+- Noticia / reporte habla de rally.
+- Resumen de carrera resume rally.
+
+No se crean relaciones Neo4j para fallas mecanicas ni para la estructura interna de rally (`Leg`, `SpecialStage`, `Split`).
+
+## Bases de datos de tiempo real
+
+### Redis
+
+Redis guarda el estado vivo de la carrera:
+
+- Auto actualmente en special stage.
 - Piloto activo y siguiente piloto.
 - Ranking en vivo.
 - Tiempos de referencia a superar.
@@ -42,6 +89,8 @@ Redis guarda el estado vivo:
 - Sesiones activas de usuarios.
 - Stream de eventos de carrera.
 
+### Cassandra
+
 Cassandra guarda el historico:
 
 - Telemetria historica.
@@ -49,90 +98,102 @@ Cassandra guarda el historico:
 - Ranking temporal guardado.
 - Eventos de carrera.
 
-## Logica de rally implementada
+## Logica de carrera
 
 En rally no corren todos los autos al mismo tiempo. Por eso el modulo de tiempo real simula un solo auto activo por vez.
 
-El flujo es:
+Flujo:
 
 1. Redis carga tiempos de referencia para cada piloto.
-2. Un piloto entra al tramo `SS1`.
+2. Un piloto entra a una special stage.
 3. El piloto avanza checkpoint por checkpoint.
-4. Mientras esta en tramo, Redis actualiza telemetria y tiempo parcial.
-5. Cuando llega al ultimo checkpoint, se actualiza su tiempo final en el ranking.
-6. Luego se habilita el siguiente piloto.
+4. Redis actualiza telemetria y tiempo parcial.
+5. Al llegar al ultimo checkpoint, se actualiza su tiempo final en el ranking.
+6. Se habilita el siguiente piloto.
 7. Cassandra lee los eventos del stream de Redis y los guarda como historico.
 
 Los tiempos se muestran en formato `hh:mm:ss.mmm`.
 
 ## Instalacion
 
-Para instalar todas las librerias de Python necesarias:
+Instalar dependencias:
 
 ```bash
 pip install -r requirements.txt
 ```
 
+## Servicios requeridos
+
+Antes de ejecutar la app, levantar los contenedores Docker:
+
+- MongoDB en `localhost:27017`.
+- Neo4j Bolt en `localhost:7687`.
+- Neo4j Browser en `localhost:7474`.
+- Redis en `localhost:6379`.
+- Cassandra en `localhost:9042`.
+
+Neo4j debe estar configurado con:
+
+```text
+USER = "neo4j"
+PASSWORD = "12345678"
+```
+
+Si tu password de Neo4j es distinto, cambiarlo en `frontend_static/shared.py` y en los scripts que correspondan.
+
+## Carga inicial de datos
+
+Para cargar datos base en MongoDB:
+
+```bash
+python bd/mongoBD.py
+```
+
+Para cargar datos base en Neo4j:
+
+```bash
+python bd/neo4jBD.py
+```
+
+Despues, al usar el frontend estatico, los nuevos documentos MongoDB crean automaticamente su nodo Neo4j.
+
 ## Ejecucion
 
-Primero asegurarse de tener levantados los contenedores de Docker:
-
-- MongoDB en `localhost:27017`
-- Neo4j en `localhost:7687`
-- Redis en `localhost:6379`
-- Cassandra en `localhost:9042`
-
-Luego levantar la web:
+Levantar la app:
 
 ```bash
 python run.py
 ```
 
-El selector principal queda en:
+Selector principal:
 
 ```text
 http://localhost:8080
 ```
 
-Los modulos quedan separados en:
+Modulos:
 
 ```text
 http://localhost:8081  Datos estaticos: MongoDB + Neo4j
 http://localhost:8082  Tiempo real: Redis + Cassandra
 ```
 
-## Requisitos de servicios locales
-
-Se debe haber creado una instancia de Neo4J con los siguientes datos:
-
-```text
-USER = "neo4j" 
-PASSWORD = "12345678"
-```
-
-Redis debe estar disponible en:
-
-```text
-localhost:6379
-```
-
-El simulador intenta iniciar el contenedor `redis-server`. Si tu contenedor tiene otro nombre, podes cambiarlo con la variable `REDIS_CONTAINER`.
-
-Cassandra se usa desde el contenedor Docker:
-
-```text
-cassandra
-```
-
-El script `bd/cassandraBD.py` usa `docker exec cassandra cqlsh` para crear tablas y persistir datos, porque el driver Python de Cassandra no funciona correctamente con Python 3.14 en este entorno.
-Si tu contenedor tiene otro nombre, podes cambiarlo con la variable `CASSANDRA_CONTAINER`.
-
-
 ## Archivos principales
 
-- `run.py`: levanta el selector y los dos frontends.
+- `run.py`: levanta el selector principal.
+- `run_frontends/run_static.py`: frontend de MongoDB + Neo4j.
+- `run_frontends/run_realtime.py`: frontend de Redis + Cassandra.
+- `frontend_static/shared.py`: conexiones compartidas y sincronizacion MongoDB -> Neo4j.
+- `frontend_static/pages/neo4j_relaciones.py`: pantalla para crear relaciones Neo4j.
+- `bd/mongoBD.py`: carga inicial de MongoDB.
+- `bd/neo4jBD.py`: carga inicial de Neo4j.
 - `bd/redisBD.py`: genera datos vivos de carrera en Redis.
-- `bd/cassandraBD.py`: crea tablas y persiste historico en Cassandra
-- `bd/neo4jBD.py`: crea bd e inserta datos en neo4j
-- `run_frontends/run_realtime.py`: muestra el panel de tiempo real.
-- `run_frontends/run_static.py`: muestra el panel estatico.
+- `bd/cassandraBD.py`: crea tablas y persiste historico en Cassandra.
+
+## Notas
+
+- Los botones de creacion de nodos Neo4j fueron removidos del frontend.
+- Los nodos Neo4j se crean desde los CRUD MongoDB.
+- Las relaciones se crean desde la pantalla `Neo4j - Relaciones`.
+- Las noticias y resumenes se vinculan a rallies desde Neo4j, no mediante `rally_id` en MongoDB.
+- Las fallas mecanicas quedan como dato del vehiculo en MongoDB, no como relacion Neo4j.

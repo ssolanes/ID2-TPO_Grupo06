@@ -2,11 +2,9 @@
 # CRUD de rallies · MongoDB · estructura: legs → special_stages → splits
 
 from nicegui import ui
-from bson import ObjectId
-from datetime import datetime, timezone
-import json
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
+    sync_neo_node_from_doc, delete_neo_node_from_doc,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK
 )
 
@@ -14,17 +12,14 @@ from frontend_static.shared import (
 def _doc_a_fila(doc):
     legs = doc.get("legs", [])
     total_ss = sum(len(leg.get("special_stages", [])) for leg in legs)
-    equipos = doc.get("equipos_participantes_ids", [])
     return {
         "_id":        str(doc.get("_id", "")),
         "nombre":     doc.get("nombre", "—"),
         "pais":       doc.get("pais", "—"),
         "temporada":  doc.get("temporada", "—"),
-        "campeonato": doc.get("campeonato", "—"),
         "superficie": doc.get("superficie_principal", "—"),
         "legs":       len(legs),
         "ss":         total_ss,
-        "equipos":    ", ".join(equipos) if isinstance(equipos, list) else str(equipos),
     }
 
 
@@ -36,30 +31,61 @@ def _cargar_filas():
         return []
 
 
-def _parse_fecha(fecha_str):
-    if not fecha_str or not fecha_str.strip():
-        return None
-    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
-        try:
-            return datetime.strptime(fecha_str.strip(), fmt).replace(tzinfo=timezone.utc)
-        except ValueError:
-            continue
-    return None
+def _resumen_estructura(legs):
+    if not legs:
+        return 1, 3, 2
+    legs_count = len(legs)
+    ss_counts = [len(leg.get("special_stages", [])) for leg in legs]
+    ss_por_leg = max(ss_counts) if ss_counts else 1
+    split_counts = [
+        len(ss.get("splits", []))
+        for leg in legs
+        for ss in leg.get("special_stages", [])
+    ]
+    splits_por_ss = max(split_counts) if split_counts else 2
+    return legs_count, ss_por_leg, splits_por_ss
 
 
-def _format_fecha(f):
-    if isinstance(f, datetime):
-        return f.strftime("%Y-%m-%d")
-    return str(f) if f else ""
+def _generar_legs(nombre_rally, superficie, legs_count, ss_por_leg, splits_por_ss):
+    base = "".join(c.lower() if c.isalnum() else "_" for c in nombre_rally).strip("_") or "rally"
+    legs = []
+    for leg_idx in range(1, int(legs_count) + 1):
+        stages = []
+        for ss_idx in range(1, int(ss_por_leg) + 1):
+            global_ss = ((leg_idx - 1) * int(ss_por_leg)) + ss_idx
+            splits = [
+                {
+                    "split_id": f"{base}_ss{global_ss}_sp{split_idx}",
+                    "nombre": f"Split {split_idx}",
+                    "km": 0,
+                    "tiempo_objetivo": "",
+                }
+                for split_idx in range(1, int(splits_por_ss) + 1)
+            ]
+            stages.append({
+                "ss_id": f"{base}_ss{global_ss}",
+                "nombre": f"SS{global_ss}",
+                "kilometros": 0,
+                "superficie": superficie,
+                "splits": splits,
+            })
+        legs.append({
+            "leg_id": f"{base}_l{leg_idx}",
+            "nombre": f"Leg {leg_idx}",
+            "dia": f"Día {leg_idx}",
+            "special_stages": stages,
+        })
+    return legs
 
 
 def _dialogo_rally(tabla, doc_id=None):
     col = mongo_col("rallies")
     doc = col.find_one({"_id": get_query_id(doc_id)}) if doc_id else {}
     legs_data = doc.get("legs", [])
+    legs_count, ss_por_leg, splits_por_ss = _resumen_estructura(legs_data)
 
     with ui.dialog().props("persistent") as dlg, \
-         ui.card().style(f"background:{CARD}; border:1px solid {BORDER}; min-width:700px; max-height:85vh; overflow-y:auto;"):
+         ui.card().style(f"background:{CARD}; border:1px solid {BORDER}; min-width:560px; max-height:85vh; overflow-y:auto;"):
 
         with ui.row().classes("w-full items-center justify-between"):
             ui.html(f'<span style="font-family:Courier New;font-size:1.1rem;font-weight:bold;color:{RED};">'
@@ -74,86 +100,52 @@ def _dialogo_rally(tabla, doc_id=None):
         with ui.grid(columns=2).classes("w-full gap-2"):
             inp_nombre  = ui.input("Nombre del rally",   value=doc.get("nombre", "")).props("outlined dark dense")
             inp_pais    = ui.input("País",               value=doc.get("pais", "")).props("outlined dark dense")
-            inp_sede    = ui.input("Sede / Ciudad base", value=doc.get("sede", "")).props("outlined dark dense")
-            inp_camp    = ui.input("Campeonato",         value=doc.get("campeonato", "wrc_2026")).props("outlined dark dense")
             inp_temp    = ui.number("Temporada",         value=doc.get("temporada", 2026), format="%.0f").props("outlined dark dense")
             inp_sup     = ui.select(["tierra","asfalto","nieve","mixto"],
                                     value=doc.get("superficie_principal","tierra"),
                                     label="Superficie").props("outlined dark dense")
-            inp_inicio  = ui.input("Fecha Inicio (AAAA-MM-DD)", value=_format_fecha(doc.get("fecha_inicio"))).props("outlined dark dense")
-            inp_fin     = ui.input("Fecha Fin (AAAA-MM-DD)", value=_format_fecha(doc.get("fecha_fin"))).props("outlined dark dense")
 
-        lbl("ESTRUCTURA DE LEGS · SPECIAL STAGES · SPLITS")
-        ui.html(
-            f'<div style="font-family:Courier New;font-size:0.78rem;color:{GREY};margin-bottom:6px;">'
-            f'Editá los legs en formato JSON. Cada leg contiene special_stages con splits.</div>'
-        )
-
-        legs_default = json.dumps([{
-            "leg_id": "rally_fin_2026_l1",
-            "nombre": "Leg 1",
-            "dia": "Viernes",
-            "special_stages": [{
-                "ss_id": "rally_fin_2026_ss1",
-                "nombre": "SS1",
-                "kilometros": 12.5,
-                "superficie": "tierra",
-                "splits": [
-                    {"split_id": "rally_fin_2026_ss1_sp1", "nombre": "Split 1", "km": 4.2, "tiempo_objetivo": "00:02:08"},
-                    {"split_id": "rally_fin_2026_ss1_sp2", "nombre": "Split 2", "km": 8.1, "tiempo_objetivo": "00:04:05"}
-                ]
-            }]
-        }], indent=2)
-
-        valor_legs = json.dumps(legs_data, default=str, indent=2) if legs_data else legs_default
-
-        inp_legs = ui.textarea(value=valor_legs).style(
-            f"width:100%; font-family:Courier New; font-size:0.8rem; "
-            f"background:{CARD2}; color:{GREEN}; border:1px solid {BORDER}; "
-            f"border-radius:6px; padding:10px; min-height:180px;"
-        ).props("outlined dark")
-
-        lbl("EQUIPOS PARTICIPANTES (IDs separados por coma)")
-        inp_equipos = ui.input(
-            value=", ".join(doc.get("equipos_participantes_ids", [])) if isinstance(doc.get("equipos_participantes_ids"), list) else ""
-        ).props("outlined dark dense").classes("w-full")
+        lbl("ESTRUCTURA SIMPLE")
+        with ui.grid(columns=3).classes("w-full gap-2"):
+            inp_legs_count = ui.number("Días / legs", value=legs_count, format="%.0f").props("outlined dark dense")
+            inp_ss_por_leg = ui.number("Special stages por día", value=ss_por_leg, format="%.0f").props("outlined dark dense")
+            inp_splits_por_ss = ui.number("Splits por special stage", value=splits_por_ss, format="%.0f").props("outlined dark dense")
 
         ui.separator().style(f"background:{BORDER}; margin:8px 0;")
 
         def guardar():
-            try:
-                legs_parsed = json.loads(inp_legs.value)
-            except Exception:
-                ui.notify("Error en JSON de legs", type="negative")
+            if int(inp_legs_count.value or 0) < 1 or int(inp_ss_por_leg.value or 0) < 1 or int(inp_splits_por_ss.value or 0) < 1:
+                ui.notify("La estructura debe tener al menos 1 día, 1 special stage y 1 split", type="warning")
                 return
 
-            f_inicio = _parse_fecha(inp_inicio.value)
-            f_fin = _parse_fecha(inp_fin.value)
-
-            equipos_list = [e.strip() for e in inp_equipos.value.split(",") if e.strip()]
+            legs_generados = _generar_legs(
+                inp_nombre.value.strip(),
+                inp_sup.value,
+                int(inp_legs_count.value or 1),
+                int(inp_ss_por_leg.value or 1),
+                int(inp_splits_por_ss.value or 1),
+            )
             
             nuevo = {
                 "nombre":               inp_nombre.value.strip(),
                 "pais":                 inp_pais.value.strip(),
-                "sede":                 inp_sede.value.strip(),
-                "campeonato":           inp_camp.value.strip(),
                 "temporada":            int(inp_temp.value or 2026),
                 "superficie_principal": inp_sup.value,
-                "legs":                 legs_parsed,
-                "equipos_participantes_ids": equipos_list,
+                "legs":                 legs_generados,
             }
-            if f_inicio:
-                nuevo["fecha_inicio"] = f_inicio
-            if f_fin:
-                nuevo["fecha_fin"] = f_fin
 
             try:
                 if doc_id:
-                    col.update_one({"_id": get_query_id(doc_id)}, {"$set": nuevo})
-                    ui.notify("Rally actualizado ✓", type="positive")
+                    col.update_one(
+                        {"_id": get_query_id(doc_id)},
+                        {"$set": nuevo, "$unset": {"sede": "", "campeonato": "", "fecha_inicio": "", "fecha_fin": ""}},
+                    )
+                    sync_neo_node_from_doc("Rally", doc_id)
+                    ui.notify("Rally actualizado en MongoDB y Neo4j ✓", type="positive")
                 else:
-                    col.insert_one(nuevo)
-                    ui.notify("Rally creado ✓", type="positive")
+                    result = col.insert_one(nuevo)
+                    sync_neo_node_from_doc("Rally", str(result.inserted_id))
+                    ui.notify("Rally creado en MongoDB y Neo4j ✓", type="positive")
                 dlg.close()
                 tabla.rows = _cargar_filas()
                 tabla.update()
@@ -177,6 +169,7 @@ def _confirmar_eliminar(tabla, doc_id, nombre):
             def eliminar():
                 try:
                     mongo_col("rallies").delete_one({"_id": get_query_id(doc_id)})
+                    delete_neo_node_from_doc("Rally", doc_id)
                     ui.notify("Rally eliminado", type="warning")
                     dlg.close()
                     tabla.rows = _cargar_filas()
@@ -201,8 +194,7 @@ def page_rallies():
             with ui.row().classes("items-center justify-between w-full"):
                 with ui.column().style("gap:2px;"):
                     ui.html(f'<div class="wrc-title" style="font-size:1.6rem;">RALLIES · ETAPAS</div>')
-                    ui.html(f'<div class="wrc-label">Colección MongoDB: <span style="color:{GREEN};">rallies</span>'
-                            f' → legs → special_stages → splits</div>')
+                    ui.html(f'<div class="wrc-label">Colección MongoDB: <span style="color:{GREEN};">rallies</span></div>')
                 ui.button("＋  Nuevo rally", on_click=lambda: _dialogo_rally(tabla)).props("unelevated").style(
                     f"background:{RED}; color:white; font-family:Courier New; font-weight:bold;"
                 )
@@ -213,11 +205,9 @@ def page_rallies():
                 {"name": "nombre",     "label": "RALLY",      "field": "nombre",     "sortable": True, "align": "left",   "style": f"color:{WHITE}; font-weight:bold;"},
                 {"name": "pais",       "label": "PAÍS",       "field": "pais",       "sortable": True, "align": "left",   "style": f"color:{GREY};"},
                 {"name": "temporada",  "label": "TEMPORADA",  "field": "temporada",  "sortable": True, "align": "center", "style": f"color:{GREY};"},
-                {"name": "campeonato", "label": "CAMPEONATO", "field": "campeonato", "sortable": True, "align": "left",   "style": f"color:{GREY};"},
                 {"name": "superficie", "label": "SUPERFICIE", "field": "superficie", "sortable": True, "align": "left",   "style": f"color:{GREY};"},
                 {"name": "legs",       "label": "LEGS",       "field": "legs",       "sortable": True, "align": "center", "style": f"color:{GOLD};"},
                 {"name": "ss",         "label": "SS",         "field": "ss",         "sortable": True, "align": "center", "style": f"color:{GOLD};"},
-                {"name": "equipos",    "label": "EQUIPOS PARTICIPANTES", "field": "equipos", "sortable": False, "align": "left", "style": f"color:{GREY};"},
                 {"name": "acciones",   "label": "ACCIONES",   "field": "acciones",   "sortable": False,"align": "center"},
             ]
 

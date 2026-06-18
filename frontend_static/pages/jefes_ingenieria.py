@@ -2,9 +2,9 @@
 # CRUD completo de jefes de ingeniería · MongoDB
 
 from nicegui import ui
-from bson import ObjectId
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
+    sync_neo_node_from_doc, delete_neo_node_from_doc,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL
 )
 
@@ -15,12 +15,9 @@ def _doc_a_fila(doc: dict) -> dict:
         "_id":          str(doc.get("_id", "")),
         "nombre":       f'{doc.get("nombre","")} {doc.get("apellido","")}',
         "especialidad": doc.get("especialidad", "—"),
-        "equipo":       doc.get("equipo_id", "—"),
-        "experiencia":  doc.get("años_experiencia", 0),
         "email":        doc.get("email", "—"),
         "telefono":     doc.get("telefono", "—"),
         "certificaciones": ", ".join(certificados) if isinstance(certificados, list) else str(certificados),
-        "estado":       doc.get("estado", "activo"),
     }
 
 
@@ -60,18 +57,11 @@ def _dialogo_jefe(tabla, doc_id: str = None):
             inp_nombre   = ui.input("Nombre",   value=doc.get("nombre", "")).props("outlined dark dense")
             inp_apellido = ui.input("Apellido", value=doc.get("apellido", "")).props("outlined dark dense")
             inp_esp      = ui.input("Especialidad", value=doc.get("especialidad", "")).props("outlined dark dense")
-            inp_exp      = ui.number("Años de Experiencia", value=doc.get("años_experiencia", 0), format="%.0f").props("outlined dark dense")
 
-        lbl("ASIGNACIÓN Y CONTACTO")
+        lbl("CONTACTO")
         with ui.grid(columns=2).classes("w-full gap-2"):
-            inp_equipo   = ui.input("equipo_id",   value=doc.get("equipo_id", "")).props("outlined dark dense")
             inp_email    = ui.input("Email",       value=doc.get("email", "")).props("outlined dark dense")
             inp_tel      = ui.input("Teléfono",    value=doc.get("telefono", "")).props("outlined dark dense")
-            inp_estado   = ui.select(
-                ["activo", "inactivo"],
-                value=doc.get("estado", "activo"),
-                label="Estado"
-            ).props("outlined dark dense")
 
         lbl("CERTIFICACIONES")
         inp_certs = ui.input(
@@ -88,21 +78,23 @@ def _dialogo_jefe(tabla, doc_id: str = None):
                 "nombre":           inp_nombre.value.strip(),
                 "apellido":         inp_apellido.value.strip(),
                 "especialidad":     inp_esp.value.strip(),
-                "equipo_id":        inp_equipo.value.strip(),
-                "años_experiencia": int(inp_exp.value or 0),
                 "email":            inp_email.value.strip(),
                 "telefono":         inp_tel.value.strip(),
                 "certificaciones":  certs_list,
-                "estado":           inp_estado.value,
             }
 
             try:
                 if doc_id:
-                    col.update_one({"_id": get_query_id(doc_id)}, {"$set": nuevo})
-                    ui.notify("Jefe de ingeniería actualizado ✓", type="positive")
+                    col.update_one(
+                        {"_id": get_query_id(doc_id)},
+                        {"$set": nuevo, "$unset": {"estado": ""}},
+                    )
+                    sync_neo_node_from_doc("JefeIngenieria", doc_id)
+                    ui.notify("Jefe de ingeniería actualizado en MongoDB y Neo4j ✓", type="positive")
                 else:
-                    col.insert_one(nuevo)
-                    ui.notify("Jefe de ingeniería creado ✓", type="positive")
+                    result = col.insert_one(nuevo)
+                    sync_neo_node_from_doc("JefeIngenieria", str(result.inserted_id))
+                    ui.notify("Jefe de ingeniería creado en MongoDB y Neo4j ✓", type="positive")
                 dlg.close()
                 tabla.rows = _cargar_filas()
                 tabla.update()
@@ -129,6 +121,7 @@ def _confirmar_eliminar(tabla, doc_id: str, nombre: str):
             def eliminar():
                 try:
                     col.delete_one({"_id": get_query_id(doc_id)})
+                    delete_neo_node_from_doc("JefeIngenieria", doc_id)
                     ui.notify("Jefe de ingeniería eliminado", type="warning")
                     dlg.close()
                     tabla.rows = _cargar_filas()
@@ -165,12 +158,9 @@ def page_jefes_ingenieria():
             columnas = [
                 {"name": "nombre",       "label": "INGENIERO",   "field": "nombre",       "sortable": True,  "align": "left",   "style": f"color:{WHITE}; font-weight:bold;"},
                 {"name": "especialidad", "label": "ESPECIALIDAD","field": "especialidad", "sortable": True,  "align": "left",   "style": f"color:{BLUE};"},
-                {"name": "equipo",       "label": "EQUIPO ID",   "field": "equipo",       "sortable": True,  "align": "left",   "style": f"color:{GREY};"},
-                {"name": "experiencia",  "label": "EXP. (AÑOS)", "field": "experiencia",  "sortable": True,  "align": "center", "style": f"color:{GOLD}; font-weight:bold;"},
                 {"name": "email",        "label": "EMAIL",       "field": "email",        "sortable": True,  "align": "left",   "style": f"color:{GREY};"},
                 {"name": "telefono",     "label": "TELÉFONO",    "field": "telefono",     "sortable": False, "align": "left",   "style": f"color:{GREY};"},
                 {"name": "certificaciones","label": "CERTIFICACIONES","field": "certificaciones","sortable": False,"align": "left", "style": f"color:{GREY}; font-size:0.8rem;"},
-                {"name": "estado",       "label": "ESTADO",      "field": "estado",       "sortable": True,  "align": "center"},
                 {"name": "acciones",     "label": "ACCIONES",    "field": "acciones",     "sortable": False, "align": "center"},
             ]
 
@@ -179,14 +169,6 @@ def page_jefes_ingenieria():
             tabla = ui.table(columns=columnas, rows=filas, row_key="_id").style(
                 f"background:{CARD}; border:1px solid {BORDER}; border-radius:10px; width:100%;"
             ).props("flat dark")
-
-            tabla.add_slot("body-cell-estado", """
-                <q-td :props="props">
-                  <span :class="props.value === 'activo' ? 'badge-green' : 'badge-red'">
-                    {{ props.value.toUpperCase() }}
-                  </span>
-                </q-td>
-            """)
 
             tabla.add_slot("body-cell-acciones", """
                 <q-td :props="props" style="text-align:center;">
