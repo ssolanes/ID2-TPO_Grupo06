@@ -380,10 +380,13 @@ def sidebar(pagina_actual: str):
             f"border-bottom:1px solid {BORDER};"
         ):
             ui.html(
+                f'<a href="http://localhost:8080" '
+                f'style="text-decoration:none; display:block;">'
                 f'<span style="font-family:Courier New;font-size:1.6rem;'
                 f'font-weight:bold;color:{RED};">WRC</span>'
                 f'<span style="font-family:Courier New;font-size:0.75rem;'
                 f'color:{GREY};display:block;margin-top:2px;">Static Data · CRUD</span>'
+                f'</a>'
             )
 
         ui.separator().style(f"background:{BORDER}; margin:0;")

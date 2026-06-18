@@ -101,7 +101,7 @@ def _opciones_nodos(label: str):
     rows = neo4j_query(f"""
         MATCH (n:{label})
         RETURN elementId(n) AS id,
-               coalesce(n.nombre, n.modelo, n.titular, n.titulo, n.mongo_id, '-') AS nombre,
+               coalesce(n.nombre, n.modelo, properties(n)['titular'], properties(n)['titulo'], n.mongo_id, '-') AS nombre,
                coalesce(n.mongo_id, '') AS mongo_id
         ORDER BY nombre
         LIMIT 200
@@ -117,6 +117,14 @@ def _opciones_relaciones(label_origen: str):
         f"{rel}|{destino}": _relacion_amigable(label_origen, rel, destino)
         for rel, destino in RELACIONES_POR_ORIGEN.get(label_origen, [])
     }
+
+
+def _opciones_filtro_relaciones():
+    opciones = {"": "Todas las relaciones"}
+    for origen, relaciones in RELACIONES_POR_ORIGEN.items():
+        for rel, destino in relaciones:
+            opciones[rel] = _relacion_amigable(origen, rel, destino)
+    return dict(sorted(opciones.items(), key=lambda item: item[1]))
 
 
 def _parse_relacion(valor: str):
@@ -340,17 +348,24 @@ def _cargar_labels():
     """)
 
 
-def _cargar_relaciones():
+def _cargar_relaciones(tipo_filtro=None, relacion_filtro=None, limite=250):
+    limite = max(10, min(int(limite or 250), 250))
     rows = neo4j_query("""
         MATCH (a)-[r]->(b)
+        WHERE ($tipo IS NULL OR $tipo IN labels(a) OR $tipo IN labels(b))
+          AND ($relacion IS NULL OR type(r) = $relacion)
         RETURN labels(a)[0] AS origen_tipo,
-               coalesce(a.nombre, a.modelo, a.mongo_id, '-') AS origen,
+               coalesce(a.nombre, a.modelo, properties(a)['titular'], properties(a)['titulo'], a.mongo_id, '-') AS origen,
                type(r) AS relacion_codigo,
                labels(b)[0] AS destino_tipo,
-               coalesce(b.nombre, b.modelo, b.titular, b.titulo, b.mongo_id, '-') AS destino
+               coalesce(b.nombre, b.modelo, properties(b)['titular'], properties(b)['titulo'], b.mongo_id, '-') AS destino
         ORDER BY origen_tipo, relacion_codigo, destino_tipo
-        LIMIT 250
-    """)
+        LIMIT $limite
+    """, {
+        "tipo": tipo_filtro or None,
+        "relacion": relacion_filtro or None,
+        "limite": limite,
+    })
     for row in rows:
         row["relacion"] = _relacion_amigable(
             row.get("origen_tipo", ""),
@@ -367,7 +382,7 @@ def _cargar_nodos_sueltos():
         MATCH (n)
         WHERE NOT (n)--()
         RETURN labels(n)[0] AS tipo,
-               coalesce(n.nombre, n.modelo, n.titular, n.titulo, n.mongo_id, '-') AS nombre,
+               coalesce(n.nombre, n.modelo, properties(n)['titular'], properties(n)['titulo'], n.mongo_id, '-') AS nombre,
                coalesce(n.mongo_id, '') AS mongo_id
         ORDER BY tipo, nombre
         LIMIT 100
@@ -427,6 +442,12 @@ def _cargar_relaciones_incompletas():
 def page_neo4j():
     ui.add_head_html(GLOBAL_CSS)
     ui.query("body").style(f"background:{DARK};")
+    filtros = {
+        "tipo": "",
+        "relacion": "",
+        "orden": "mayor",
+        "limite": 100,
+    }
 
     with ui.row().style("min-height:100vh; width:100%; gap:0;"):
         sidebar("/static/neo4j")
@@ -458,15 +479,62 @@ def page_neo4j():
                 with tabla_contenedor:
                     try:
                         labels = _cargar_labels()
+                        if filtros["orden"] == "mayor":
+                            labels = sorted(labels, key=lambda item: item.get("cantidad", 0), reverse=True)
+                        elif filtros["orden"] == "menor":
+                            labels = sorted(labels, key=lambda item: item.get("cantidad", 0))
+                        else:
+                            labels = sorted(labels, key=lambda item: _tipo_amigable(item.get("label", "")))
                         nodos_sueltos = _cargar_nodos_sueltos()
                         relaciones_incompletas = _cargar_relaciones_incompletas()
-                        relaciones = _cargar_relaciones()
+                        relaciones = _cargar_relaciones(
+                            filtros["tipo"] or None,
+                            filtros["relacion"] or None,
+                            filtros["limite"],
+                        )
                     except Exception as e:
                         ui.notify(f"Error Neo4j: {e}", type="negative")
                         ui.label(str(e)).style(
                             f"font-family:'Courier New',monospace; color:{RED}; font-size:0.8rem;"
                         )
                         return
+
+                    def aplicar_tipo(label):
+                        filtros["tipo"] = "" if filtros["tipo"] == label else label
+                        refrescar()
+
+                    ui.html(f'<div class="section-label">FILTROS</div>')
+                    with ui.row().classes("w-full items-end").style("gap:10px; flex-wrap:wrap;"):
+                        tipo_opciones = {"": "Todos los tipos"}
+                        tipo_opciones.update({row["label"]: _tipo_amigable(row["label"]) for row in labels})
+                        ui.select(
+                            tipo_opciones,
+                            value=filtros["tipo"],
+                            label="Tipo de nodo",
+                            on_change=lambda e: (filtros.update({"tipo": e.value or ""}), refrescar()),
+                        ).props("outlined dark dense").style("min-width:210px;")
+                        ui.select(
+                            _opciones_filtro_relaciones(),
+                            value=filtros["relacion"],
+                            label="Relación",
+                            on_change=lambda e: (filtros.update({"relacion": e.value or ""}), refrescar()),
+                        ).props("outlined dark dense").style("min-width:260px;")
+                        ui.select(
+                            {"mayor": "Nodos: mayor a menor", "menor": "Nodos: menor a mayor", "nombre": "Nodos: por nombre"},
+                            value=filtros["orden"],
+                            label="Orden",
+                            on_change=lambda e: (filtros.update({"orden": e.value or "mayor"}), refrescar()),
+                        ).props("outlined dark dense").style("min-width:210px;")
+                        ui.select(
+                            {25: "25 relaciones", 50: "50 relaciones", 100: "100 relaciones", 250: "250 relaciones"},
+                            value=filtros["limite"],
+                            label="Mostrar",
+                            on_change=lambda e: (filtros.update({"limite": int(e.value or 100)}), refrescar()),
+                        ).props("outlined dark dense").style("min-width:160px;")
+                        ui.button("Limpiar filtros", on_click=lambda: (
+                            filtros.update({"tipo": "", "relacion": "", "orden": "mayor", "limite": 100}),
+                            refrescar(),
+                        )).props("flat").style(f"color:{GREY}; font-family:Courier New;")
 
                     with ui.grid(columns=4).classes("w-full").style(
                         "gap:12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));"
@@ -476,18 +544,18 @@ def page_neo4j():
                                 f"font-family:'Courier New',monospace; color:{GREY}; font-size:0.82rem;"
                             )
                         for item in labels:
-                            with ui.column().style(
-                                f"background:{CARD}; border:1px solid {BORDER}; border-radius:8px; "
-                                f"padding:12px; gap:4px;"
-                            ):
-                                ui.label(item.get("label", "-")).style(
-                                    f"font-family:'Courier New',monospace; color:{BLUE}; "
-                                    f"font-size:0.8rem; font-weight:bold;"
-                                )
-                                ui.label(str(item.get("cantidad", 0))).style(
-                                    f"font-family:'Courier New',monospace; color:{WHITE}; "
-                                    f"font-size:1.5rem; font-weight:bold;"
-                                )
+                            label = item.get("label", "-")
+                            activo = filtros["tipo"] == label
+                            ui.button(
+                                f'{_tipo_amigable(label)}\n{item.get("cantidad", 0)}',
+                                on_click=lambda label=label: aplicar_tipo(label),
+                            ).props("flat no-caps").style(
+                                f"background:{CARD2 if activo else CARD}; "
+                                f"border:1px solid {BLUE if activo else BORDER}; border-radius:8px; "
+                                f"padding:12px; min-height:72px; width:100%; "
+                                f"font-family:'Courier New',monospace; color:{WHITE}; "
+                                f"white-space:pre-line; text-align:left;"
+                            )
 
                     ui.html(f'<div class="section-label">AVISOS DE RELACIONES</div>')
                     with ui.grid(columns=2).classes("w-full").style(
@@ -533,6 +601,14 @@ def page_neo4j():
                                 )
 
                     ui.html(f'<div class="section-label">RELACIONES</div>')
+                    detalle_filtros = []
+                    if filtros["tipo"]:
+                        detalle_filtros.append(f'Tipo: {_tipo_amigable(filtros["tipo"])}')
+                    if filtros["relacion"]:
+                        detalle_filtros.append(f'Relación: {_opciones_filtro_relaciones().get(filtros["relacion"], filtros["relacion"])}')
+                    ui.label(" · ".join(detalle_filtros) if detalle_filtros else "Mostrando todas las relaciones").style(
+                        f"font-family:'Courier New',monospace; color:{GREY}; font-size:0.78rem;"
+                    )
                     columnas = [
                         {"name": "origen_tipo", "label": "ORIGEN TIPO", "field": "origen_tipo", "sortable": True, "align": "left", "style": f"color:{BLUE}; font-weight:bold;"},
                         {"name": "origen",      "label": "ORIGEN",      "field": "origen",      "sortable": True, "align": "left", "style": f"color:{WHITE}; font-weight:bold;"},
