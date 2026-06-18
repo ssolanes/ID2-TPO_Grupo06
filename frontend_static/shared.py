@@ -205,7 +205,7 @@ def sync_neo_node_from_doc(tipo: str, doc_id: str):
     props = props_neo_desde_mongo(tipo, doc)
     remove_props = []
     if tipo == "Piloto":
-        remove_props = ["n.estado"]
+        remove_props = ["n.estado", "n.numero_auto"]
     elif tipo == "Copiloto":
         remove_props = ["n.pais_codigo", "n.estado"]
     elif tipo == "Patrocinador":

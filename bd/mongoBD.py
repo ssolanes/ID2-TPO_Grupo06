@@ -44,12 +44,53 @@ except ConnectionFailure as e:
 db = cliente["mundial_rally"]
 print(f"✓  Base de datos seleccionada: mundial_rally\n")
 
+CAMPOS_RELACIONALES_MONGO = {
+    "equipos": {
+        "jefe_ingenieria_id",
+        "pilotos_ids",
+        "copilotos_ids",
+        "vehiculos_ids",
+        "patrocinadores_ids",
+        "activo",
+    },
+    "pilotos": {
+        "fecha_nacimiento",
+        "equipo_id",
+        "copiloto_id",
+        "vehiculo_id",
+        "numero_auto",
+        "estado",
+        "sponsors",
+        "estadisticas",
+    },
+    "copiloto": {
+        "fecha_nacimiento",
+        "equipo_id",
+        "piloto_id",
+        "años_experiencia",
+        "idiomas",
+        "estado",
+    },
+    "vehiculos": {"equipo_id"},
+    "patrocinador": {"pais_origen", "activo"},
+    "jefe_ingenieria": {"equipo_id", "años_experiencia", "estado"},
+    "rallies": {"campeonato", "equipos_participantes_ids"},
+    "noticias_reportes": {"rally_id"},
+    "resumenes_carrera": {"rally_id"},
+}
+
+
+def doc_mongo_limpio(coleccion, doc):
+    campos = CAMPOS_RELACIONALES_MONGO.get(coleccion, set())
+    return {clave: valor for clave, valor in doc.items() if clave not in campos}
+
+
 # ─── Helper: limpiar e insertar colección ───────────────────────────────────
 def cargar_coleccion(nombre: str, documentos: list):
     try:
         col = db[nombre]
         col.delete_many({})                    # limpiar datos anteriores
-        resultado = col.insert_many(documentos)
+        resultado = col.insert_many([doc_mongo_limpio(nombre, doc) for doc in documentos])
         print(f"  ✓  {nombre:<25} → {len(resultado.inserted_ids)} documentos insertados")
     except BulkWriteError as bwe:
         print(f"  ✗  {nombre}: error de escritura masiva → {bwe.details}")
@@ -570,11 +611,13 @@ resumenes_carrera = [
     {
         "_id":              "resumen_fin_2026",
         "rally_id":         "rally_fin_2026",
+        "titulo":           "Resumen Rally Finland 2026",
+        "ganador":          "Luca Moretti",
         "fecha_generacion": fecha(2026, 8, 3),
         "podio": [
-            {"pilot_id": "piloto_moretti",  "puesto": 1, "tiempo_total": "3:24:15.320"},
-            {"pilot_id": "piloto_benitez",  "puesto": 2, "tiempo_total": "3:24:48.711"},
-            {"pilot_id": "piloto_tanaka",   "puesto": 3, "tiempo_total": "3:25:10.004"},
+            {"piloto": "Luca Moretti",    "puesto": 1, "tiempo_total": "3:24:15.320"},
+            {"piloto": "Carlos Benítez",  "puesto": 2, "tiempo_total": "3:24:48.711"},
+            {"piloto": "Hiro Tanaka",     "puesto": 3, "tiempo_total": "3:25:10.004"},
         ],
         "abandons": [],
         "incidentes": [

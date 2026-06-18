@@ -87,7 +87,11 @@ def _dialogo_jefe(tabla, doc_id: str = None):
                 if doc_id:
                     col.update_one(
                         {"_id": get_query_id(doc_id)},
-                        {"$set": nuevo, "$unset": {"estado": ""}},
+                        {"$set": nuevo, "$unset": {
+                            "estado": "",
+                            "equipo_id": "",
+                            "años_experiencia": "",
+                        }},
                     )
                     sync_neo_node_from_doc("JefeIngenieria", doc_id)
                     ui.notify("Jefe de ingeniería actualizado en MongoDB y Neo4j ✓", type="positive")

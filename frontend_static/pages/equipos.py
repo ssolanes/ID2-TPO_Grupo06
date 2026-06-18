@@ -60,7 +60,14 @@ def _dialogo_equipo(tabla, doc_id=None):
                 if doc_id:
                     col.update_one(
                         {"_id": get_query_id(doc_id)},
-                        {"$set": nuevo, "$unset": {"activo": ""}},
+                        {"$set": nuevo, "$unset": {
+                            "activo": "",
+                            "jefe_ingenieria_id": "",
+                            "pilotos_ids": "",
+                            "copilotos_ids": "",
+                            "vehiculos_ids": "",
+                            "patrocinadores_ids": "",
+                        }},
                     )
                     sync_neo_node_from_doc("Equipo", doc_id)
                     ui.notify("Equipo actualizado en MongoDB y Neo4j ✓", type="positive")

@@ -138,7 +138,13 @@ def _dialogo_rally(tabla, doc_id=None):
                 if doc_id:
                     col.update_one(
                         {"_id": get_query_id(doc_id)},
-                        {"$set": nuevo, "$unset": {"sede": "", "campeonato": "", "fecha_inicio": "", "fecha_fin": ""}},
+                        {"$set": nuevo, "$unset": {
+                            "sede": "",
+                            "campeonato": "",
+                            "fecha_inicio": "",
+                            "fecha_fin": "",
+                            "equipos_participantes_ids": "",
+                        }},
                     )
                     sync_neo_node_from_doc("Rally", doc_id)
                     ui.notify("Rally actualizado en MongoDB y Neo4j ✓", type="positive")

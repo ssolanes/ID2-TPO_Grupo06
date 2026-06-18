@@ -82,7 +82,16 @@ def _dialogo_piloto(tabla, doc_id: str = None):
                 if doc_id:
                     col.update_one(
                         {"_id": get_query_id(doc_id)},
-                        {"$set": nuevo, "$unset": {"estadisticas": "", "estado": ""}},
+                        {"$set": nuevo, "$unset": {
+                            "estadisticas": "",
+                            "estado": "",
+                            "fecha_nacimiento": "",
+                            "equipo_id": "",
+                            "copiloto_id": "",
+                            "vehiculo_id": "",
+                            "numero_auto": "",
+                            "sponsors": "",
+                        }},
                     )
                     sync_neo_node_from_doc("Piloto", doc_id)
                     ui.notify("Piloto actualizado en MongoDB y Neo4j ✓", type="positive")

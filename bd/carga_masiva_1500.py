@@ -44,6 +44,47 @@ def fecha(anio, mes, dia):
     return datetime(anio, mes, dia, tzinfo=timezone.utc)
 
 
+CAMPOS_RELACIONALES_MONGO = {
+    "equipos": {
+        "jefe_ingenieria_id",
+        "pilotos_ids",
+        "copilotos_ids",
+        "vehiculos_ids",
+        "patrocinadores_ids",
+        "activo",
+    },
+    "pilotos": {
+        "fecha_nacimiento",
+        "equipo_id",
+        "copiloto_id",
+        "vehiculo_id",
+        "numero_auto",
+        "estado",
+        "sponsors",
+        "estadisticas",
+    },
+    "copiloto": {
+        "fecha_nacimiento",
+        "equipo_id",
+        "piloto_id",
+        "años_experiencia",
+        "idiomas",
+        "estado",
+    },
+    "vehiculos": {"equipo_id"},
+    "patrocinador": {"pais_origen", "activo"},
+    "jefe_ingenieria": {"equipo_id", "años_experiencia", "estado"},
+    "rallies": {"campeonato", "equipos_participantes_ids"},
+    "noticias_reportes": {"rally_id"},
+    "resumenes_carrera": {"rally_id"},
+}
+
+
+def doc_mongo_limpio(coleccion, doc):
+    campos = CAMPOS_RELACIONALES_MONGO.get(coleccion, set())
+    return {clave: valor for clave, valor in doc.items() if clave not in campos}
+
+
 def generar_documentos():
     colecciones = {
         "equipos": [],
@@ -175,14 +216,14 @@ def generar_documentos():
                 "rally_id": rally_id,
                 "titulo": f"Resumen Rally {indice:03d}",
                 "fecha_generacion": fecha(2026, (indice - 1) % 12 + 1, 4),
-                "ganador": pilotos_ids[0],
+                "ganador": f'Piloto{(indice - 1) * 3 + 1:04d} WRC{(indice - 1) * 3 + 1:04d}',
                 "podio": [
                     {
-                        "pilot_id": piloto_id,
+                        "piloto": f'Piloto{((indice - 1) * 3 + puesto):04d} WRC{((indice - 1) * 3 + puesto):04d}',
                         "puesto": puesto,
                         "tiempo_total": f"03:{20 + puesto:02d}:{indice % 60:02d}.000",
                     }
-                    for puesto, piloto_id in enumerate(pilotos_ids, start=1)
+                    for puesto in range(1, 4)
                 ],
                 "abandons": [],
                 "incidentes": [],
@@ -271,7 +312,10 @@ def generar_documentos():
 
 def cargar_mongodb(db, colecciones):
     for nombre, documentos in colecciones.items():
-        operaciones = [ReplaceOne({"_id": doc["_id"]}, doc, upsert=True) for doc in documentos]
+        operaciones = [
+            ReplaceOne({"_id": doc["_id"]}, doc_mongo_limpio(nombre, doc), upsert=True)
+            for doc in documentos
+        ]
         resultado = db[nombre].bulk_write(operaciones, ordered=False)
         print(
             f"MongoDB {nombre:<22} total={len(documentos):>3} "
@@ -286,7 +330,7 @@ def filas_neo4j(colecciones):
             for d in colecciones["equipos"]
         ],
         "Piloto": [
-            {"mongo_id": d["_id"], "props": {"nombre": f'{d["nombre"]} {d["apellido"]}', "pais": d["pais"]["nombre"], "numero_auto": d["numero_auto"], "origen_carga": d["origen_carga"]}}
+            {"mongo_id": d["_id"], "props": {"nombre": f'{d["nombre"]} {d["apellido"]}', "pais": d["pais"]["nombre"], "origen_carga": d["origen_carga"]}}
             for d in colecciones["pilotos"]
         ],
         "Copiloto": [

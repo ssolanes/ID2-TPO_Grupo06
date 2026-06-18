@@ -30,6 +30,7 @@ MongoDB guarda los datos propios de cada entidad:
 - Noticias y reportes.
 
 Los formularios del frontend estan simplificados para cargar solo la informacion necesaria. Las relaciones entre entidades no se cargan en estos formularios.
+Los scripts de carga tambien limpian campos relacionales como `equipo_id`, `vehiculo_id`, `copiloto_id`, `rally_id` o listas de participantes antes de insertar en MongoDB.
 
 ### Rally en MongoDB
 

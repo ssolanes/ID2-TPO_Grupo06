@@ -405,11 +405,11 @@ def _cargar_relaciones_incompletas():
         if not node_id:
             continue
         faltantes = []
-        if not doc.get("equipo_id") and not _existe_relacion(node_id, "(n)-[:PERTENECE_A]->(:Equipo)"):
+        if not _existe_relacion(node_id, "(n)-[:PERTENECE_A]->(:Equipo)"):
             faltantes.append("equipo")
-        if not doc.get("vehiculo_id") and not _existe_relacion(node_id, "(n)-[:CONDUCE]->(:Vehiculo)"):
+        if not _existe_relacion(node_id, "(n)-[:CONDUCE]->(:Vehiculo)"):
             faltantes.append("vehiculo")
-        if not doc.get("copiloto_id") and not _existe_relacion(node_id, "(n)-[:TIENE_COPILOTO]-(:Copiloto)"):
+        if not _existe_relacion(node_id, "(n)-[:TIENE_COPILOTO]-(:Copiloto)"):
             faltantes.append("copiloto")
         if faltantes:
             incompletas.append({"tipo": "Piloto", "nombre": _display_doc("Piloto", doc), "faltantes": faltantes})
@@ -419,9 +419,9 @@ def _cargar_relaciones_incompletas():
         if not node_id:
             continue
         faltantes = []
-        if not doc.get("equipo_id") and not _existe_relacion(node_id, "(n)-[:PERTENECE_A]->(:Equipo)"):
+        if not _existe_relacion(node_id, "(n)-[:PERTENECE_A]->(:Equipo)"):
             faltantes.append("equipo")
-        if not doc.get("piloto_id") and not _existe_relacion(node_id, "(:Piloto)-[:TIENE_COPILOTO]-(n)"):
+        if not _existe_relacion(node_id, "(:Piloto)-[:TIENE_COPILOTO]-(n)"):
             faltantes.append("piloto")
         if faltantes:
             incompletas.append({"tipo": "Copiloto", "nombre": _display_doc("Copiloto", doc), "faltantes": faltantes})
@@ -431,9 +431,9 @@ def _cargar_relaciones_incompletas():
         if not node_id:
             continue
         faltantes = []
-        if not doc.get("vehiculos_ids") and not _existe_relacion(node_id, "(n)-[:USA]->(:Vehiculo)"):
+        if not _existe_relacion(node_id, "(n)-[:USA]->(:Vehiculo)"):
             faltantes.append("vehiculo")
-        if not doc.get("patrocinadores_ids") and not _existe_relacion(node_id, "(:Patrocinador)-[:PATROCINA]->(n)"):
+        if not _existe_relacion(node_id, "(:Patrocinador)-[:PATROCINA]->(n)"):
             faltantes.append("sponsor")
         if faltantes:
             incompletas.append({"tipo": "Equipo", "nombre": _display_doc("Equipo", doc), "faltantes": faltantes})

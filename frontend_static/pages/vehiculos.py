@@ -91,7 +91,13 @@ def _dialogo_vehiculo(tabla, doc_id: str = None):
                 if doc_id:
                     col.update_one(
                         {"_id": get_query_id(doc_id)},
-                        {"$set": nuevo, "$unset": {"motor": "", "configuracion.transmision": "", "configuracion.suspension": "", "estado_mecanico.ultima_revision": ""}},
+                        {"$set": nuevo, "$unset": {
+                            "equipo_id": "",
+                            "motor": "",
+                            "configuracion.transmision": "",
+                            "configuracion.suspension": "",
+                            "estado_mecanico.ultima_revision": "",
+                        }},
                     )
                     sync_neo_node_from_doc("Vehiculo", doc_id)
                     ui.notify("Vehículo actualizado en MongoDB y Neo4j ✓", type="positive")

@@ -71,7 +71,13 @@ def _dialogo_copiloto(tabla, doc_id: str = None):
                 if doc_id:
                     col.update_one(
                         {"_id": get_query_id(doc_id)},
-                        {"$set": nuevo, "$unset": {"fecha_nacimiento": "", "idiomas": "", "estado": ""}},
+                        {"$set": nuevo, "$unset": {
+                            "fecha_nacimiento": "",
+                            "idiomas": "",
+                            "estado": "",
+                            "equipo_id": "",
+                            "piloto_id": "",
+                        }},
                     )
                     sync_neo_node_from_doc("Copiloto", doc_id)
                     ui.notify("Copiloto actualizado en MongoDB y Neo4j ✓", type="positive")
