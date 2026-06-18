@@ -218,7 +218,7 @@ def _existe_relacion(element_id, patron):
     return bool(rows and rows[0]["existe"])
 
 
-def _dialogo_crear_relacion():
+def _dialogo_crear_relacion(on_created=None):
     labels_origen = _labels_existentes()
     if not labels_origen:
         ui.notify("No hay nodos disponibles para crear relaciones", type="warning")
@@ -306,22 +306,32 @@ def _dialogo_crear_relacion():
             rel_nombre = _relacion_amigable(inp_label_a.value, rel_tipo, destino_label)
 
             try:
-                neo4j_query(f"""
+                rows = neo4j_query(f"""
                     MATCH (a:{inp_label_a.value})
                     WHERE elementId(a) = $origen_id
                     MATCH (b:{destino_label})
                     WHERE elementId(b) = $destino_id
                     MERGE (a)-[r:{rel_tipo}]->(b)
-                    RETURN r
+                    RETURN count(r) AS cantidad
                 """, {
                     "origen_id": inp_nodo_a.value,
                     "destino_id": inp_nodo_b.value,
                 })
+                if not rows or rows[0].get("cantidad", 0) == 0:
+                    ui.notify("No se pudo crear: Neo4j no encontró alguno de los nodos", type="warning")
+                    resultado.set_content(
+                        f'<div style="font-family:Courier New;color:{GOLD};font-size:0.82rem;">'
+                        f'No se guardó la relación. Probá refrescar los nodos y volver a elegirlos.</div>'
+                    )
+                    return
+
                 ui.notify(f"{rel_nombre} creada ✓", type="positive")
                 resultado.set_content(
                     f'<div style="font-family:Courier New;color:{GREEN};font-size:0.82rem;">'
                     f'✓ {_tipo_amigable(inp_label_a.value)} · {rel_nombre} · {_tipo_amigable(destino_label)}</div>'
                 )
+                if on_created:
+                    on_created()
             except Exception as e:
                 ui.notify(f"Error Neo4j: {e}", type="negative")
 
@@ -460,7 +470,7 @@ def page_neo4j():
                         f"background:{CARD2}; color:{GREEN}; font-family:Courier New; font-weight:bold; "
                         f"border:1px solid {GREEN};"
                     )
-                    ui.button("⬡  Crear relación", on_click=_dialogo_crear_relacion).props("unelevated").style(
+                    ui.button("⬡  Crear relación", on_click=lambda: _dialogo_crear_relacion(refrescar)).props("unelevated").style(
                         f"background:{CARD2}; color:{BLUE}; font-family:Courier New; font-weight:bold; "
                         f"border:1px solid {BLUE};"
                     )
