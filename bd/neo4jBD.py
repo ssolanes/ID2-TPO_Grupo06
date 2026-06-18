@@ -75,12 +75,12 @@ CREATE
 (co2)-[:ASISTE_EN]->(v3),
 (co3)-[:ASISTE_EN]->(v5),
 
-(p1)-[:PARTICIPA_EN]->(c1),
-(p2)-[:PARTICIPA_EN]->(c1),
-(p3)-[:PARTICIPA_EN]->(c1),
-(co1)-[:PARTICIPA_EN]->(c1),
-(co2)-[:PARTICIPA_EN]->(c1),
-(co3)-[:PARTICIPA_EN]->(c1),
+(p1)-[:PARTICIPA_EN]->(r1),
+(p2)-[:PARTICIPA_EN]->(r1),
+(p3)-[:PARTICIPA_EN]->(r1),
+(co1)-[:PARTICIPA_EN]->(r1),
+(co2)-[:PARTICIPA_EN]->(r1),
+(co3)-[:PARTICIPA_EN]->(r1),
 
 (s1)-[:PATROCINA]->(e1),
 (s2)-[:PATROCINA]->(e2),

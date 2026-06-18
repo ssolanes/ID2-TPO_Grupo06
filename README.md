@@ -56,10 +56,10 @@ Relaciones disponibles desde el frontend:
 - Piloto pertenece a equipo.
 - Piloto conduce vehiculo.
 - Piloto tiene copiloto.
-- Piloto participa en campeonato.
+- Piloto participa en rally.
 - Copiloto pertenece a equipo.
 - Copiloto asiste en vehiculo.
-- Copiloto participa en campeonato.
+- Copiloto participa en rally.
 - Equipo usa vehiculo.
 - Equipo participa en rally.
 - Patrocinador patrocina equipo.

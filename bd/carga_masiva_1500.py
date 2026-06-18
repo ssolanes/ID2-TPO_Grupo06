@@ -346,11 +346,19 @@ def cargar_neo4j(driver, colecciones):
         ("Piloto", "TIENE_COPILOTO", "Copiloto"): [
             {"origen": d["_id"], "destino": d["copiloto_id"]} for d in colecciones["pilotos"]
         ],
+        ("Piloto", "PARTICIPA_EN", "Rally"): [
+            {"origen": d["_id"], "destino": f'bulk_rally_{int(d["_id"].split("_")[-1]):04d}'}
+            for d in colecciones["pilotos"]
+        ],
         ("Copiloto", "PERTENECE_A", "Equipo"): [
             {"origen": d["_id"], "destino": d["equipo_id"]} for d in colecciones["copiloto"]
         ],
         ("Copiloto", "ASISTE_EN", "Vehiculo"): [
             {"origen": d["_id"], "destino": f'bulk_vehiculo_{int(d["_id"].split("_")[-1]):04d}'}
+            for d in colecciones["copiloto"]
+        ],
+        ("Copiloto", "PARTICIPA_EN", "Rally"): [
+            {"origen": d["_id"], "destino": f'bulk_rally_{int(d["_id"].split("_")[-1]):04d}'}
             for d in colecciones["copiloto"]
         ],
         ("Equipo", "USA", "Vehiculo"): [
