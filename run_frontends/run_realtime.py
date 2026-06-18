@@ -1,6 +1,7 @@
 from nicegui import ui
 import asyncio
 import html
+import os
 import redis
 import subprocess
 from frontend_static.shared import GLOBAL_CSS, DARK, RED, BLUE, GREY, CARD, BORDER, GREEN, WHITE, GOLD
@@ -8,7 +9,7 @@ from frontend_static.shared import GLOBAL_CSS, DARK, RED, BLUE, GREY, CARD, BORD
 
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
-CASSANDRA_CONTAINER = "cassandra-demo"
+CASSANDRA_CONTAINER = os.getenv("CASSANDRA_CONTAINER", "cassandra")
 CARRERA = "wrc_2026_finlandia"
 KEYSPACE = "world_rally_cup"
 PILOTOS = ["p1","p2","p3"]

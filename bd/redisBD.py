@@ -6,10 +6,12 @@ import redis
 import time
 import random
 import subprocess
+import os
 
 
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
+REDIS_CONTAINER = os.getenv("REDIS_CONTAINER", "redis-server")
 CARRERA = "wrc_2026_finlandia"
 PILOTOS = ["p1", "p2", "p3"]
 CHECKPOINTS_POR_ETAPA = 8
@@ -27,7 +29,7 @@ def piloto_siguiente(indice_actual):
 
 
 def conectar_redis():
-    subprocess.run(["docker", "start", "redis"], capture_output=True)
+    subprocess.run(["docker", "start", REDIS_CONTAINER], capture_output=True)
     cliente = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
     cliente.ping()
     return cliente

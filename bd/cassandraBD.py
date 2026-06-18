@@ -7,7 +7,7 @@ import redis
 
 REDIS_HOST = "localhost"
 REDIS_PORT = 6379
-CASSANDRA_CONTAINER = os.getenv("CASSANDRA_CONTAINER", "cassandra-demo")
+CASSANDRA_CONTAINER = os.getenv("CASSANDRA_CONTAINER", "cassandra")
 CARRERA = "wrc_2026_finlandia"
 STREAM_EVENTOS = f"carrera:{CARRERA}:eventos"
 KEYSPACE = "world_rally_cup"

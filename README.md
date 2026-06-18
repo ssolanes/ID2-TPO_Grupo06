@@ -75,13 +75,14 @@ pip install -r requirements.txt
 
 ## Ejecucion
 
-Primero levantar los procesos de Redis y Cassandra: (SE ESTA TESTEANDO SALTEAR ESTE PASO, TODAVIA NO ESTA CONFIRMADO)
+Primero asegurarse de tener levantados los contenedores de Docker:
 
-```bash
-python runBD.py
-```
+- MongoDB en `localhost:27017`
+- Neo4j en `localhost:7687`
+- Redis en `localhost:6379`
+- Cassandra en `localhost:9042`
 
-Luego, en otra terminal, levantar la web:
+Luego levantar la web:
 
 ```bash
 python run.py
@@ -115,22 +116,23 @@ Redis debe estar disponible en:
 localhost:6379
 ```
 
+El simulador intenta iniciar el contenedor `redis-server`. Si tu contenedor tiene otro nombre, podes cambiarlo con la variable `REDIS_CONTAINER`.
+
 Cassandra se usa desde el contenedor Docker:
 
 ```text
-cassandra-demo
+cassandra
 ```
 
-El script `bd/cassandraBD.py` usa `docker exec cassandra-demo cqlsh` para crear tablas y persistir datos, porque el driver Python de Cassandra no funciona correctamente con Python 3.14 en este entorno.
+El script `bd/cassandraBD.py` usa `docker exec cassandra cqlsh` para crear tablas y persistir datos, porque el driver Python de Cassandra no funciona correctamente con Python 3.14 en este entorno.
+Si tu contenedor tiene otro nombre, podes cambiarlo con la variable `CASSANDRA_CONTAINER`.
 
 
 ## Archivos principales
 
 - `run.py`: levanta el selector y los dos frontends.
-- `runBD.py`: levanta los procesos de Redis y Cassandra.
 - `bd/redisBD.py`: genera datos vivos de carrera en Redis.
 - `bd/cassandraBD.py`: crea tablas y persiste historico en Cassandra
 - `bd/neo4jBD.py`: crea bd e inserta datos en neo4j
 - `run_frontends/run_realtime.py`: muestra el panel de tiempo real.
 - `run_frontends/run_static.py`: muestra el panel estatico.
-
