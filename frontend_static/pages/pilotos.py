@@ -4,7 +4,7 @@
 from nicegui import ui
 from bson import ObjectId
 from frontend_static.shared import (
-    mongo_col, sidebar, GLOBAL_CSS, get_query_id,
+    mongo_col, neo4j_query, sidebar, GLOBAL_CSS, get_query_id,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL
 )
 
@@ -38,6 +38,123 @@ def _cargar_filas():
     except Exception as e:
         ui.notify(f"Error MongoDB: {e}", type="negative")
         return []
+
+
+def _nombre_completo(doc: dict) -> str:
+    return f'{doc.get("nombre", "")} {doc.get("apellido", "")}'.strip()
+
+
+def _buscar_doc(nombre_coleccion: str, doc_id: str):
+    if not doc_id:
+        return None
+    return mongo_col(nombre_coleccion).find_one({"_id": get_query_id(doc_id)})
+
+
+def _nombre_equipo(equipo_id: str) -> str:
+    equipo = _buscar_doc("equipos", equipo_id)
+    return equipo.get("nombre", equipo_id) if equipo else equipo_id
+
+
+def _nombre_copiloto(copiloto_id: str) -> str:
+    copiloto = _buscar_doc("copiloto", copiloto_id)
+    return _nombre_completo(copiloto) if copiloto else copiloto_id
+
+
+def _modelo_vehiculo(vehiculo_id: str) -> str:
+    vehiculo = _buscar_doc("vehiculos", vehiculo_id)
+    if not vehiculo:
+        return vehiculo_id
+    return f'{vehiculo.get("marca", "")} {vehiculo.get("modelo", "")}'.strip() or vehiculo_id
+
+
+def _relacionar_nodo_neo4j(
+    piloto_id: str,
+    label: str,
+    mongo_id: str,
+    propiedad_nombre: str,
+    valor_nombre: str,
+    relacion: str,
+):
+    encontrados = neo4j_query(f"""
+        MATCH (n:{label})
+        WHERE n.mongo_id = $mongo_id OR n.{propiedad_nombre} = $valor_nombre
+        RETURN elementId(n) AS element_id
+        LIMIT 1
+    """, {
+        "mongo_id": mongo_id,
+        "valor_nombre": valor_nombre,
+    })
+
+    if encontrados:
+        neo4j_query(f"""
+            MATCH (p:Piloto {{mongo_id: $piloto_id}})
+            MATCH (n:{label})
+            WHERE elementId(n) = $element_id
+            SET n.mongo_id = coalesce(n.mongo_id, $mongo_id),
+                n.{propiedad_nombre} = $valor_nombre
+            MERGE (p)-[:{relacion}]->(n)
+        """, {
+            "piloto_id": piloto_id,
+            "element_id": encontrados[0]["element_id"],
+            "mongo_id": mongo_id,
+            "valor_nombre": valor_nombre,
+        })
+        return
+
+    neo4j_query(f"""
+        MATCH (p:Piloto {{mongo_id: $piloto_id}})
+        CREATE (n:{label} {{mongo_id: $mongo_id, {propiedad_nombre}: $valor_nombre}})
+        MERGE (p)-[:{relacion}]->(n)
+    """, {
+        "piloto_id": piloto_id,
+        "mongo_id": mongo_id,
+        "valor_nombre": valor_nombre,
+    })
+
+
+def _sincronizar_piloto_neo4j(mongo_id: str, piloto: dict):
+    nombre_completo = _nombre_completo(piloto)
+    pais = piloto.get("pais", {})
+    pais_nombre = pais.get("nombre", "") if isinstance(pais, dict) else str(pais or "")
+
+    neo4j_query("""
+        MERGE (p:Piloto {mongo_id: $mongo_id})
+        SET p.nombre = $nombre_completo,
+            p.nombre_pila = $nombre,
+            p.apellido = $apellido,
+            p.pais = $pais,
+            p.numero_auto = $numero_auto,
+            p.estado = $estado
+        WITH p
+        OPTIONAL MATCH (p)-[r:PERTENECE_A|CONDUCE|TIENE_COPILOTO]->()
+        DELETE r
+    """, {
+        "mongo_id": mongo_id,
+        "nombre_completo": nombre_completo,
+        "nombre": piloto.get("nombre", ""),
+        "apellido": piloto.get("apellido", ""),
+        "pais": pais_nombre,
+        "numero_auto": piloto.get("numero_auto", 0),
+        "estado": piloto.get("estado", "activo"),
+    })
+
+    equipo_id = piloto.get("equipo_id", "")
+    if equipo_id:
+        _relacionar_nodo_neo4j(
+            mongo_id, "Equipo", equipo_id, "nombre", _nombre_equipo(equipo_id), "PERTENECE_A"
+        )
+
+    vehiculo_id = piloto.get("vehiculo_id", "")
+    if vehiculo_id:
+        _relacionar_nodo_neo4j(
+            mongo_id, "Vehiculo", vehiculo_id, "modelo", _modelo_vehiculo(vehiculo_id), "CONDUCE"
+        )
+
+    copiloto_id = piloto.get("copiloto_id", "")
+    if copiloto_id:
+        _relacionar_nodo_neo4j(
+            mongo_id, "Copiloto", copiloto_id, "nombre", _nombre_copiloto(copiloto_id), "TIENE_COPILOTO"
+        )
 
 
 # ─── Dialogo CREAR / EDITAR ──────────────────────────────────────────────────
@@ -116,10 +233,12 @@ def _dialogo_piloto(tabla, doc_id: str = None):
             try:
                 if doc_id:
                     col.update_one({"_id": get_query_id(doc_id)}, {"$set": nuevo})
-                    ui.notify("Piloto actualizado ✓", type="positive")
+                    _sincronizar_piloto_neo4j(str(doc_id), nuevo)
+                    ui.notify("Piloto actualizado en MongoDB y Neo4j ✓", type="positive")
                 else:
-                    col.insert_one(nuevo)
-                    ui.notify("Piloto creado ✓", type="positive")
+                    resultado = col.insert_one(nuevo)
+                    _sincronizar_piloto_neo4j(str(resultado.inserted_id), nuevo)
+                    ui.notify("Piloto creado en MongoDB y Neo4j ✓", type="positive")
                 dlg.close()
                 tabla.rows = _cargar_filas()
                 tabla.update()
@@ -148,6 +267,10 @@ def _confirmar_eliminar(tabla, doc_id: str, nombre: str):
             def eliminar():
                 try:
                     col.delete_one({"_id": get_query_id(doc_id)})
+                    neo4j_query("""
+                        MATCH (p:Piloto {mongo_id: $mongo_id})
+                        DETACH DELETE p
+                    """, {"mongo_id": str(doc_id)})
                     ui.notify("Piloto eliminado", type="warning")
                     dlg.close()
                     tabla.rows = _cargar_filas()
@@ -226,4 +349,3 @@ def page_pilotos():
             tabla.on("editar",   lambda e: _dialogo_piloto(tabla, e.args.get("_id")))
             tabla.on("eliminar", lambda e: _confirmar_eliminar(
                 tabla, e.args.get("_id"), e.args.get("nombre", "?")))
-
