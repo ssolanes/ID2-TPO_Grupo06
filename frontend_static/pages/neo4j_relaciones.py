@@ -13,7 +13,6 @@ RELACIONES_POR_ORIGEN = {
     "Piloto": [
         ("PERTENECE_A", "Equipo"),
         ("CONDUCE", "Vehiculo"),
-        ("TIENE_COPILOTO", "Copiloto"),
         ("PARTICIPA_EN", "Rally"),
     ],
     "Copiloto": [
@@ -60,7 +59,6 @@ TIPOS_AMIGABLES = {
 RELACIONES_AMIGABLES = {
     ("Piloto", "PERTENECE_A", "Equipo"): "Pertenece a un equipo",
     ("Piloto", "CONDUCE", "Vehiculo"): "Conduce un vehículo",
-    ("Piloto", "TIENE_COPILOTO", "Copiloto"): "Tiene copiloto",
     ("Piloto", "PARTICIPA_EN", "Rally"): "Participa en rally",
     ("Copiloto", "PERTENECE_A", "Equipo"): "Pertenece a un equipo",
     ("Copiloto", "ASISTE_EN", "Vehiculo"): "Asiste en un vehículo",
@@ -409,8 +407,6 @@ def _cargar_relaciones_incompletas():
             faltantes.append("equipo")
         if not _existe_relacion(node_id, "(n)-[:CONDUCE]->(:Vehiculo)"):
             faltantes.append("vehiculo")
-        if not _existe_relacion(node_id, "(n)-[:TIENE_COPILOTO]-(:Copiloto)"):
-            faltantes.append("copiloto")
         if faltantes:
             incompletas.append({"tipo": "Piloto", "nombre": _display_doc("Piloto", doc), "faltantes": faltantes})
 
@@ -421,8 +417,6 @@ def _cargar_relaciones_incompletas():
         faltantes = []
         if not _existe_relacion(node_id, "(n)-[:PERTENECE_A]->(:Equipo)"):
             faltantes.append("equipo")
-        if not _existe_relacion(node_id, "(:Piloto)-[:TIENE_COPILOTO]-(n)"):
-            faltantes.append("piloto")
         if faltantes:
             incompletas.append({"tipo": "Copiloto", "nombre": _display_doc("Copiloto", doc), "faltantes": faltantes})
 
