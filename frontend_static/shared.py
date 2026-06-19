@@ -3,7 +3,8 @@
 
 from pymongo import MongoClient
 from neo4j import GraphDatabase
-from bson import ObjectId
+import re
+import unicodedata
 
 # ─── MongoDB ────────────────────────────────────────────────────────────────
 _mongo_client = None
@@ -18,12 +19,26 @@ def mongo_col(nombre: str):
     return get_mongo_db()[nombre]
 
 def get_query_id(doc_id: str):
-    try:
-        if ObjectId.is_valid(doc_id):
-            return ObjectId(doc_id)
-    except Exception:
-        pass
     return doc_id
+
+
+def _slug_id(valor) -> str:
+    texto = unicodedata.normalize("NFKD", str(valor or ""))
+    texto = texto.encode("ascii", "ignore").decode("ascii").lower()
+    texto = re.sub(r"[^a-z0-9]+", "_", texto)
+    return texto.strip("_")
+
+
+def generar_mongo_id(coleccion: str, prefijo: str, *partes) -> str:
+    slug = "_".join(parte for parte in (_slug_id(parte) for parte in partes) if parte)
+    base = f"{prefijo}_{slug or 'nuevo'}"
+    candidato = base
+    sufijo = 2
+    col = mongo_col(coleccion)
+    while col.count_documents({"_id": candidato}, limit=1):
+        candidato = f"{base}_{sufijo}"
+        sufijo += 1
+    return candidato
 
 # ─── Neo4j ───────────────────────────────────────────────────────────────────
 _neo4j_driver = None

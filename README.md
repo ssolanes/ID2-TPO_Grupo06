@@ -31,6 +31,7 @@ MongoDB guarda los datos propios de cada entidad:
 
 Los formularios del frontend estan simplificados para cargar solo la informacion necesaria. Las relaciones entre entidades no se cargan en estos formularios.
 Los scripts de carga tambien limpian campos relacionales como `equipo_id`, `vehiculo_id`, `copiloto_id`, `rally_id` o listas de participantes antes de insertar en MongoDB.
+Los documentos usan `_id` string legibles y estables, por ejemplo `piloto_luca_moretti`, `equipo_toyota` o `rally_montecarlo_2026`. El frontend genera esos IDs antes de insertar y Neo4j usa el mismo valor como `mongo_id`.
 
 ### Rally en MongoDB
 

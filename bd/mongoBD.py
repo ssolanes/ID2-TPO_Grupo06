@@ -7,7 +7,7 @@
 # Este dataset está sincronizado con neo4jBD.py:
 #   - Los mismos 3 pilotos, copilotos, jefes de ingeniería, equipos, vehículos,
 #     patrocinadores, rallies y fallas mecánicas están presentes en ambas BDs.
-#   - Los _id de MongoDB coinciden con las propiedades usadas como clave en Neo4j.
+#   - MongoDB genera automaticamente los _id al insertar este dataset.
 
 from pymongo import MongoClient
 from pymongo.errors import (
@@ -82,7 +82,24 @@ CAMPOS_RELACIONALES_MONGO = {
 
 def doc_mongo_limpio(coleccion, doc):
     campos = CAMPOS_RELACIONALES_MONGO.get(coleccion, set())
-    return {clave: valor for clave, valor in doc.items() if clave not in campos}
+    return limpiar_ids_manuales(doc, campos)
+
+
+def es_campo_id_manual(clave):
+    return clave in {"id", "_id"} or clave.endswith("_id") or clave.endswith("_ids")
+
+
+def limpiar_ids_manuales(valor, campos_extra=None):
+    campos_extra = campos_extra or set()
+    if isinstance(valor, dict):
+        return {
+            clave: limpiar_ids_manuales(subvalor)
+            for clave, subvalor in valor.items()
+            if clave not in campos_extra and not es_campo_id_manual(clave)
+        }
+    if isinstance(valor, list):
+        return [limpiar_ids_manuales(item) for item in valor]
+    return valor
 
 
 # ─── Helper: limpiar e insertar colección ───────────────────────────────────
@@ -746,31 +763,7 @@ print(f"\n  {'TOTAL':<25} → {total} documentos")
 print("\n✓  Dataset cargado correctamente en mundial_rally")
 print("=" * 60)
 
-# ── Tabla de coherencia con Neo4j ────────────────────────────────────────────
-print("\nCoherencia con neo4jBD.py:")
-print("  Neo4j Nodo            MongoDB _id")
-print("  " + "-" * 45)
-tabla_coherencia = [
-    ("Piloto: Luca Moretti",    "piloto_moretti"),
-    ("Piloto: Carlos Benítez",  "piloto_benitez"),
-    ("Piloto: Hiro Tanaka",     "piloto_tanaka"),
-    ("Copiloto: Marco Bellini", "copiloto_bellini"),
-    ("Copiloto: Diego Suárez",  "copiloto_suarez"),
-    ("Copiloto: Yuki Nakamura", "copiloto_nakamura"),
-    ("Equipo: Monster Rally",   "eq_monster"),
-    ("Equipo: Andes Motorsport","eq_andes"),
-    ("Equipo: Samurai Racing",  "eq_samurai"),
-    ("Vehículo: Ford Puma R1",  "veh_puma_r1"),
-    ("Vehículo: Toyota Yaris",  "veh_yaris_r1"),
-    ("Vehículo: Hyundai i20 R1","veh_i20_r1"),
-    ("Patrocinador: RedBull",   "sponsor_redbull"),
-    ("Patrocinador: Pirelli",   "sponsor_pirelli"),
-    ("Patrocinador: Shell",     "sponsor_shell"),
-    ("Rally: Rally Finland",    "rally_fin_2026"),
-]
-for neo4j_label, mongo_id in tabla_coherencia:
-    print(f"  {neo4j_label:<25} ↔  {mongo_id}")
-
+print("\nMongoDB genero automaticamente los _id con ObjectId.")
 print("=" * 60)
 
 cliente.close()

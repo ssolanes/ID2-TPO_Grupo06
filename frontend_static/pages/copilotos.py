@@ -4,7 +4,7 @@
 from nicegui import ui
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
-    sync_neo_node_from_doc, delete_neo_node_from_doc,
+    generar_mongo_id, sync_neo_node_from_doc, delete_neo_node_from_doc,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL
 )
 
@@ -82,6 +82,7 @@ def _dialogo_copiloto(tabla, doc_id: str = None):
                     sync_neo_node_from_doc("Copiloto", doc_id)
                     ui.notify("Copiloto actualizado en MongoDB y Neo4j ✓", type="positive")
                 else:
+                    nuevo["_id"] = generar_mongo_id("copiloto", "copiloto", nuevo["nombre"], nuevo["apellido"])
                     result = col.insert_one(nuevo)
                     sync_neo_node_from_doc("Copiloto", str(result.inserted_id))
                     ui.notify("Copiloto creado en MongoDB y Neo4j ✓", type="positive")
