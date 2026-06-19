@@ -10,6 +10,27 @@ from frontend_static.shared import (
 
 # CRUD (hay que modificarlo)
 
+SELECT_POPUP_PROPS = "popup-content-class=wrc-select-popup options-dense"
+SELECT_POPUP_CSS = f"""
+<style>
+  .wrc-select-popup {{
+    max-height: 320px !important;
+    overflow-y: auto !important;
+    background: {CARD2} !important;
+    border: 1px solid {BORDER} !important;
+    color: {WHITE} !important;
+  }}
+  .wrc-select-popup .q-item {{
+    min-height: 34px !important;
+    font-family: 'Courier New', monospace !important;
+  }}
+  .wrc-select-popup .q-item__label {{
+    color: {WHITE} !important;
+    overflow-wrap: anywhere;
+  }}
+</style>
+"""
+
 RELACIONES_POR_ORIGEN = {
     "Piloto": [
         ("PERTENECE_A", "Equipo"),
@@ -98,7 +119,7 @@ def _opciones_nodos(label: str):
                coalesce(n.nombre, n.modelo, properties(n)['titular'], properties(n)['titulo'], n.mongo_id, '-') AS nombre,
                coalesce(n.mongo_id, '') AS mongo_id
         ORDER BY nombre
-        LIMIT 200
+        LIMIT 1000
     """)
     opciones = {}
     for row in rows:
@@ -187,7 +208,8 @@ def _dialogo_crear_relacion(on_created=None):
                 opciones_origen,
                 value=next(iter(opciones_origen), None),
                 label="Nodo origen",
-            ).props("outlined dark dense")
+                with_input=True,
+            ).props(f"outlined dark dense {SELECT_POPUP_PROPS}")
 
         lbl("RELACIÓN POSIBLE")
         inp_rel = ui.select(
@@ -203,7 +225,8 @@ def _dialogo_crear_relacion(on_created=None):
                 opciones_destino,
                 value=next(iter(opciones_destino), None),
                 label="Nodo destino",
-            ).props("outlined dark dense")
+                with_input=True,
+            ).props(f"outlined dark dense {SELECT_POPUP_PROPS}")
 
         resultado = ui.html("")
 
@@ -374,6 +397,7 @@ def _cargar_relaciones_incompletas():
 @ui.page("/static/neo4j")
 def page_neo4j():
     ui.add_head_html(GLOBAL_CSS)
+    ui.add_head_html(SELECT_POPUP_CSS)
     ui.query("body").style(f"background:{DARK};")
     filtros = {
         "tipo": "",
