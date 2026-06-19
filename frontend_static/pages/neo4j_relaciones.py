@@ -59,6 +59,9 @@ RELACIONES_POR_ORIGEN = {
     "ResumenCarrera": [
         ("RESUME", "Rally"),
     ],
+    "NoticiaReporte": [
+        ("HABLA_DE", "Rally"),
+    ],
 }
 
 
@@ -89,6 +92,7 @@ RELACIONES_AMIGABLES = {
     ("JefeIngenieria", "DIRIGE", "Equipo"): "Dirige un equipo",
     ("Campeonato", "TIENE_RALLY", "Rally"): "Tiene rally",
     ("ResumenCarrera", "RESUME", "Rally"): "Resume un rally",
+    ("NoticiaReporte", "HABLA_DE", "Rally"): "Habla de un rally",
 }
 
 
@@ -490,7 +494,7 @@ def page_neo4j():
                             label = item.get("label", "-")
                             activo = filtros["tipo"] == label
                             ui.button(
-                                f'{_tipo_amigable(label)}\n{item.get("cantidad", 0)}',
+                                f'{_tipo_amigable(label)}',
                                 on_click=lambda label=label: aplicar_tipo(label),
                             ).props("flat no-caps").style(
                                 f"background:{CARD2 if activo else CARD}; "

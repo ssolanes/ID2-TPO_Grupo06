@@ -18,9 +18,8 @@ MongoDB guarda los datos propios de cada entidad:
 - Resumenes de carrera.
 - Noticias y reportes.
 
-Los formularios del frontend estan simplificados para cargar solo la informacion necesaria. Las relaciones entre entidades no se cargan en estos formularios.
-Los scripts de carga tambien limpian campos relacionales como `equipo_id`, `vehiculo_id`, `copiloto_id`, `rally_id` o listas de participantes antes de insertar en MongoDB.
-Los documentos usan `_id` string legibles y estables, por ejemplo `piloto_luca_moretti`, `equipo_toyota` o `rally_montecarlo_2026`. El frontend genera esos IDs antes de insertar y Neo4j usa el mismo valor como `mongo_id`.
+Los formularios del frontend estan simplificados para cargar solo los campos de MongoDB. Las relaciones entre entidades se ven apretando el icono de conexion.
+
 
 ### Rally en MongoDB
 
@@ -45,21 +44,21 @@ Cada nodo Neo4j conserva solo datos minimos de visualizacion: `mongo_id`, `nombr
 
 Relaciones disponibles desde el frontend:
 
-- Piloto pertenece a equipo.
-- Piloto conduce vehiculo.
-- Piloto participa en rally.
-- Copiloto pertenece a equipo.
-- Copiloto asiste en vehiculo.
-- Copiloto participa en rally.
-- Equipo usa vehiculo.
-- Equipo participa en rally.
-- Patrocinador patrocina equipo.
-- Jefe de ingenieria dirige equipo.
-- Campeonato tiene rally.
-- Noticia / reporte habla de rally.
-- Resumen de carrera resume rally.
+- Campeonato -(Tiene_Rally)-> Rally
+- Piloto -(Pertenece a)-> Equipo
+- Copiloto -(Pertenece a)-> Equipo
+- Jefe de Ingeniería -(Dirige)-> Equipo
+- Equipo -(Usa)-> Vehículo
+- Equipo -(Participa en)-> Rally
+- Piloto -(Conduce)-> Vehículo
+- Copiloto -(Asiste en)-> Vehículo
+- Piloto -(Participa en)-> Campeonato
+- Copiloto -(Participa en)-> Campeonato
+- Patrocinador -(Patrocina a)-> Equipo
+- Noticia / Reporte -(Habla de)-> Rally
+- Resumen de Carrera -(Resume)-> Rally
 
-No se crean relaciones Neo4j para fallas mecanicas ni para la estructura interna de rally (`Leg`, `SpecialStage`, `Split`).
+
 
 ## Bases de datos de tiempo real
 
@@ -133,17 +132,13 @@ Si tu password de Neo4j es distinto, cambiarlo en `frontend_static/shared.py` y 
 
 ## Carga inicial de datos
 
-Para cargar datos base en MongoDB:
+Para cargar datos base en MongoDB y Neo4j, correr:
 
 ```bash
-python bd/mongoBD.py
+python bd/dataset_MongoNeo.py
 ```
 
-Para cargar datos base en Neo4j:
-
-```bash
-python bd/neo4jBD.py
-```
+El script genera todos los datos en memoria utilizando diccionarios de Python (con claves temporales para las relaciones), los inserta primero en MongoDB, que les asigna los _id reales, y luego usa esos mismos objetos en memoria (ya con _id de Mongo) para crear en Neo4j nodos livianos (mongo_id + nombre) y las relaciones entre ellos, resolviendo las claves temporales a _id reales en el proceso; antes de empezar borra todo lo existente en ambas bases para poder correrse varias veces sin duplicar, y al final valida que la cantidad de documentos y nodos/relaciones insertados coincida con lo esperado.
 
 Despues, al usar el frontend estatico, los nuevos documentos MongoDB crean automaticamente su nodo Neo4j.
 
@@ -175,15 +170,6 @@ http://localhost:8082  Tiempo real: Redis + Cassandra
 - `run_frontends/run_realtime.py`: frontend de Redis + Cassandra.
 - `frontend_static/shared.py`: conexiones compartidas y sincronizacion MongoDB -> Neo4j.
 - `frontend_static/pages/neo4j_relaciones.py`: pantalla para crear relaciones Neo4j.
-- `bd/mongoBD.py`: carga inicial de MongoDB.
-- `bd/neo4jBD.py`: carga inicial de Neo4j.
+- `bd/dataset_MongoNeo.py`: carga inicial de MongoDBy Neo4j
 - `bd/redisBD.py`: genera datos vivos de carrera en Redis.
 - `bd/cassandraBD.py`: crea tablas y persiste historico en Cassandra.
-
-## Notas
-
-- Los botones de creacion de nodos Neo4j fueron removidos del frontend.
-- Los nodos Neo4j se crean desde los CRUD MongoDB.
-- Las relaciones se crean desde la pantalla `Neo4j - Relaciones`.
-- Las noticias y resumenes se vinculan a rallies desde Neo4j, no mediante `rally_id` en MongoDB.
-- Las fallas mecanicas quedan como dato del vehiculo en MongoDB, no como relacion Neo4j.

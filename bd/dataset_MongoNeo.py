@@ -72,6 +72,7 @@ RELACIONES_NEO_PERMITIDAS = {
     ("Patrocinador", "PATROCINA", "Equipo"),
     ("JefeIngenieria", "DIRIGE", "Equipo"),
     ("ResumenCarrera", "RESUME", "Rally"),
+    ("NoticiaReporte", "HABLA_DE", "Rally"),
 }
 
 COUNTS = {
@@ -84,7 +85,7 @@ COUNTS = {
     "rallies": 120,
     "patrocinador": 120,
     "resumenes_carrera": 200,
-    "noticias_reportes": 439,
+    "noticias_reportes": 103,
 }
 
 PAISES = [
@@ -206,7 +207,7 @@ def generar_datos():
             {
                 "__equipo_key": f"equipo:{i % COUNTS['equipos']}",
                 "marca": marca,
-                "modelo": f"{marca} Rally {1 + (i % 5)}",
+                "modelo": f"Rally {1 + (i % 5)} #{i + 1:03d}",
                 "anio": 2021 + (i % 6),
                 "tipo_combustible": "hibrido" if i % 3 == 0 else "nafta",
                 "configuracion": {"traccion": "4WD"},
@@ -307,6 +308,7 @@ def generar_datos():
             "noticias_reportes",
             f"noticia:{i}",
             {
+                "__rally_key": f"rally:{i % COUNTS['rallies']}",
                 "tipo": ["previa", "resultado", "analisis"][i % 3],
                 "titular": f"Reporte WRC {i + 1:03d}",
                 "contenido": f"Reporte generado para la carga masiva numero {i + 1}.",
@@ -556,6 +558,9 @@ def construir_relaciones(data):
 
     for doc in data["resumenes_carrera"]:
         add("ResumenCarrera", "RESUME", "Rally", doc["_id"], ref(index, doc["__rally_key"]))
+
+    for doc in data["noticias_reportes"]:
+        add("NoticiaReporte", "HABLA_DE", "Rally", doc["_id"], ref(index, doc["__rally_key"]))
 
     return rels
 
