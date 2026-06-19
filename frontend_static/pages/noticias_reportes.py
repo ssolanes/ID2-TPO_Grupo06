@@ -260,9 +260,6 @@ def page_noticias_reportes():
 
             tabla.add_slot("body-cell-acciones", """
                 <q-td :props="props" style="text-align:center;">
-                  <q-btn flat round dense icon="link"
-                    style="color:#0080FF; margin-right:4px;"
-                    @click="$parent.$emit('relaciones', props.row)" />
                   <q-btn flat round dense icon="edit"
                     style="color:#F5C518; margin-right:4px;"
                     @click="$parent.$emit('editar', props.row)" />
@@ -272,8 +269,6 @@ def page_noticias_reportes():
                 </q-td>
             """)
 
-            tabla.on("relaciones", lambda e: mostrar_dialogo_relaciones(
-                "NoticiaReporte", e.args.get("_id"), e.args.get("titular", "?")))
             tabla.on("editar",   lambda e: _dialogo_noticia(tabla, e.args.get("_id")))
             tabla.on("eliminar", lambda e: _confirmar_eliminar(
                 tabla, e.args.get("_id"), e.args.get("titular", "?")))

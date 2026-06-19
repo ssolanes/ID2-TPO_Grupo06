@@ -66,7 +66,7 @@ ENTIDADES_NEO = {
     "Vehiculo": {
         "coleccion": "vehiculos",
         "label": "Vehiculo",
-        "prop_nombre": "modelo",
+        "prop_nombre": "nombre",
     },
     "Patrocinador": {
         "coleccion": "patrocinador",
@@ -91,7 +91,7 @@ ENTIDADES_NEO = {
     "ResumenCarrera": {
         "coleccion": "resumenes_carrera",
         "label": "ResumenCarrera",
-        "prop_nombre": "titulo",
+        "prop_nombre": "nombre",
     },
 }
 
@@ -115,9 +115,7 @@ def display_doc_neo(tipo: str, doc: dict) -> str:
 
 
 ALIAS_VISUALES_NEO = {
-    "Vehiculo": "modelo",
     "NoticiaReporte": "titular",
-    "ResumenCarrera": "titulo",
 }
 
 

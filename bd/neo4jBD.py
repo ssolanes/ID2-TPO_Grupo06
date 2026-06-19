@@ -21,7 +21,6 @@ driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
 
 cypher = """
 CREATE
-(c1:Campeonato {mongo_id: "campeonato_wrc", nombre: "World Rally Cup"}),
 (r1:Rally {mongo_id: "rally_fin_2026", nombre: "Rally Finland"}),
 (e1:Equipo {mongo_id: "eq_monster", nombre: "Monster Rally Team"}),
 (e2:Equipo {mongo_id: "eq_andes", nombre: "Andes Motorsport"}),
@@ -44,8 +43,8 @@ CREATE
 (s1:Patrocinador {mongo_id: "sponsor_redbull", nombre: "RedBull"}),
 (s2:Patrocinador {mongo_id: "sponsor_pirelli", nombre: "Pirelli"}),
 (s3:Patrocinador {mongo_id: "sponsor_shell", nombre: "Shell"}),
-
-(c1)-[:TIENE_RALLY]->(r1),
+(n1:NoticiaReporte {mongo_id: "noticia_fin_2026_preview", nombre: "Rally Finland 2026: previa", titular: "Rally Finland 2026: previa"}),
+(re1:ResumenCarrera {mongo_id: "resumen_fin_2026", nombre: "Resumen Rally Finland 2026"}),
 
 (p1)-[:PERTENECE_A]->(e1),
 (p2)-[:PERTENECE_A]->(e2),
@@ -82,7 +81,9 @@ CREATE
 
 (s1)-[:PATROCINA]->(e1),
 (s2)-[:PATROCINA]->(e2),
-(s3)-[:PATROCINA]->(e3)
+(s3)-[:PATROCINA]->(e3),
+
+(re1)-[:RESUME]->(r1)
 """
 
 with driver.session() as session:

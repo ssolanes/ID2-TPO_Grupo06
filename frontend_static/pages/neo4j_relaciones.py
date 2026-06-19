@@ -56,9 +56,6 @@ RELACIONES_POR_ORIGEN = {
     "Campeonato": [
         ("TIENE_RALLY", "Rally"),
     ],
-    "NoticiaReporte": [
-        ("HABLA_DE", "Rally"),
-    ],
     "ResumenCarrera": [
         ("RESUME", "Rally"),
     ],
@@ -91,7 +88,6 @@ RELACIONES_AMIGABLES = {
     ("Patrocinador", "PATROCINA", "Equipo"): "Patrocina un equipo",
     ("JefeIngenieria", "DIRIGE", "Equipo"): "Dirige un equipo",
     ("Campeonato", "TIENE_RALLY", "Rally"): "Tiene rally",
-    ("NoticiaReporte", "HABLA_DE", "Rally"): "Habla de un rally",
     ("ResumenCarrera", "RESUME", "Rally"): "Resume un rally",
 }
 
@@ -342,6 +338,7 @@ def _cargar_nodos_sueltos():
     rows = neo4j_query("""
         MATCH (n)
         WHERE NOT (n)--()
+          AND NOT 'NoticiaReporte' IN labels(n)
         RETURN labels(n)[0] AS tipo,
                coalesce(n.nombre, n.modelo, properties(n)['titular'], properties(n)['titulo'], n.mongo_id, '-') AS nombre,
                coalesce(n.mongo_id, '') AS mongo_id

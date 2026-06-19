@@ -6,7 +6,7 @@
 #
 # Este dataset está sincronizado con neo4jBD.py:
 #   - Los mismos 3 pilotos, copilotos, jefes de ingeniería, equipos, vehículos,
-#     patrocinadores, rallies y fallas mecánicas están presentes en ambas BDs.
+#     patrocinadores y rallies están presentes en ambas BDs.
 #   - MongoDB genera automaticamente los _id al insertar este dataset.
 
 from pymongo import MongoClient
@@ -331,7 +331,6 @@ pilotos = [
 #  Neo4j: v1=Ford Puma R1 (e1), v2=Ford Fiesta R2 (e1),
 #         v3=Toyota GR Yaris R1 (e2), v4=Toyota Corolla R2 (e2),
 #         v5=Hyundai i20 N R1 (e3), v6=Hyundai i20 R2 (e3)
-#  Fallas: v1→f1(Motor/Alta), v3→f2(Suspensión/Media), v5→f3(Frenos/Alta)
 # ══════════════════════════════════════════════════════════════════════════════
 vehiculos = [
     {
@@ -352,9 +351,8 @@ vehiculos = [
             "suspension":   "McPherson delantera / multilink trasera",
         },
         "estado_mecanico": {
-            "ok":              False,
+            "ok":              True,
             "ultima_revision": fecha(2026, 7, 10),
-            "falla_activa":    {"tipo": "Motor", "gravedad": "Alta"},
         },
     },
     {
@@ -377,7 +375,6 @@ vehiculos = [
         "estado_mecanico": {
             "ok":              True,
             "ultima_revision": fecha(2026, 7, 12),
-            "falla_activa":    None,
         },
     },
     {
@@ -398,9 +395,8 @@ vehiculos = [
             "suspension":   "doble horquilla delantera / multilink trasera",
         },
         "estado_mecanico": {
-            "ok":              False,
+            "ok":              True,
             "ultima_revision": fecha(2026, 7, 11),
-            "falla_activa":    {"tipo": "Suspensión", "gravedad": "Media"},
         },
     },
     {
@@ -423,7 +419,6 @@ vehiculos = [
         "estado_mecanico": {
             "ok":              True,
             "ultima_revision": fecha(2026, 7, 13),
-            "falla_activa":    None,
         },
     },
     {
@@ -444,9 +439,8 @@ vehiculos = [
             "suspension":   "MacPherson delantera / multilink trasera",
         },
         "estado_mecanico": {
-            "ok":              False,
+            "ok":              True,
             "ultima_revision": fecha(2026, 7, 9),
-            "falla_activa":    {"tipo": "Frenos", "gravedad": "Alta"},
         },
     },
     {
@@ -469,7 +463,6 @@ vehiculos = [
         "estado_mecanico": {
             "ok":              True,
             "ultima_revision": fecha(2026, 7, 14),
-            "falla_activa":    None,
         },
     },
 ]
@@ -484,7 +477,6 @@ rallies = [
     {
         "nombre":                   "Rally Finland",
         "temporada":                2026,
-        "campeonato":               "wrc_2026",
         "pais":                     "Finlandia",
         "sede":                     "Jyväskylä",
         "fecha_inicio":             fecha(2026, 7, 31),
@@ -603,19 +595,8 @@ resumenes_carrera = [
             {"piloto": "Hiro Tanaka",     "puesto": 3, "tiempo_total": "3:25:10.004"},
         ],
         "abandons": [],
-        "incidentes": [
-            {
-                "specialstage_id": "rally_fin_2026_ss4",
-                "tipo":            "falla_mecanica",
-                "descripcion":     "Moretti (veh_puma_r1) sufrió falla de motor en el SS4 pero logró completar el tramo.",
-            },
-            {
-                "specialstage_id": "rally_fin_2026_ss6",
-                "tipo":            "falla_mecanica",
-                "descripcion":     "Benítez (veh_yaris_r1) reportó problemas de suspensión en el SS6.",
-            },
-        ],
-        "claves": ["victoria_moretti", "falla_motor", "suspensión", "power_stage"],
+        "incidentes": [],
+        "claves": ["victoria_moretti", "ritmo_constante", "estrategia", "power_stage"],
     },
 ]
 
@@ -625,29 +606,29 @@ resumenes_carrera = [
 noticias_reportes = [
     {
         "rally_id": "rally_fin_2026",
-        "tipo":     "incidente",
-        "titular":  "Moretti sufre falla de motor en SS4 pero mantiene el liderato",
+        "tipo":     "analisis",
+        "titular":  "Moretti administra el ritmo en SS4 y mantiene el liderato",
         "contenido": (
             "Durante el tramo SS4 del Leg 2 del Rally Finland 2026, el piloto Luca Moretti "
-            "del equipo Monster Rally Team reportó una falla de motor en su Ford Puma Rally1. "
-            "A pesar del incidente, Moretti logró completar el tramo y conservar la primera posición."
+            "del equipo Monster Rally Team administró el ritmo de su Ford Puma Rally1. "
+            "Con una estrategia conservadora, logró completar el tramo y conservar la primera posición."
         ),
         "fecha":    fecha(2026, 8, 1),
-        "etiquetas": ["falla_motor", "moretti", "ss4", "leg2"],
+        "etiquetas": ["ritmo", "moretti", "ss4", "leg2"],
         "fuente":   "FIA Official Media",
     },
     {
         "rally_id": "rally_fin_2026",
-        "tipo":     "incidente",
-        "titular":  "Benítez reporta problemas de suspensión en SS6",
+        "tipo":     "analisis",
+        "titular":  "Benítez ajusta la puesta a punto para el SS6",
         "contenido": (
             "El piloto Carlos Benítez de Andes Motorsport comunicó al equipo técnico "
-            "problemas en la suspensión de su Toyota GR Yaris Rally1 durante el SS6. "
-            "El jefe de ingeniería Santiago Rivas confirmó que se realizará una revisión completa "
+            "cambios de puesta a punto en su Toyota GR Yaris Rally1 durante el SS6. "
+            "El jefe de ingeniería Santiago Rivas confirmó que se revisarán los datos de telemetría "
             "antes del Leg 3."
         ),
         "fecha":    fecha(2026, 8, 2),
-        "etiquetas": ["suspensión", "benitez", "ss6", "andes_motorsport"],
+        "etiquetas": ["setup", "benitez", "ss6", "andes_motorsport"],
         "fuente":   "Andes Motorsport Official",
     },
     {
