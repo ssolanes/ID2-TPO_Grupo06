@@ -4,7 +4,7 @@
 from nicegui import ui
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
-    generar_mongo_id, sync_neo_node_from_doc, delete_neo_node_from_doc, mostrar_dialogo_relaciones,
+    sync_neo_node_from_doc, delete_neo_node_from_doc, mostrar_dialogo_relaciones,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK
 )
 
@@ -47,7 +47,6 @@ def _resumen_estructura(legs):
 
 
 def _generar_legs(nombre_rally, superficie, legs_count, ss_por_leg, splits_por_ss):
-    base = "".join(c.lower() if c.isalnum() else "_" for c in nombre_rally).strip("_") or "rally"
     legs = []
     for leg_idx in range(1, int(legs_count) + 1):
         stages = []
@@ -55,7 +54,6 @@ def _generar_legs(nombre_rally, superficie, legs_count, ss_por_leg, splits_por_s
             global_ss = ((leg_idx - 1) * int(ss_por_leg)) + ss_idx
             splits = [
                 {
-                    "split_id": f"{base}_ss{global_ss}_sp{split_idx}",
                     "nombre": f"Split {split_idx}",
                     "km": 0,
                     "tiempo_objetivo": "",
@@ -63,14 +61,12 @@ def _generar_legs(nombre_rally, superficie, legs_count, ss_por_leg, splits_por_s
                 for split_idx in range(1, int(splits_por_ss) + 1)
             ]
             stages.append({
-                "ss_id": f"{base}_ss{global_ss}",
                 "nombre": f"SS{global_ss}",
                 "kilometros": 0,
                 "superficie": superficie,
                 "splits": splits,
             })
         legs.append({
-            "leg_id": f"{base}_l{leg_idx}",
             "nombre": f"Leg {leg_idx}",
             "dia": f"Día {leg_idx}",
             "special_stages": stages,
@@ -149,7 +145,6 @@ def _dialogo_rally(tabla, doc_id=None):
                     sync_neo_node_from_doc("Rally", doc_id)
                     ui.notify("Rally actualizado en MongoDB y Neo4j ✓", type="positive")
                 else:
-                    nuevo["_id"] = generar_mongo_id("rallies", "rally", nuevo["nombre"], nuevo["temporada"])
                     result = col.insert_one(nuevo)
                     sync_neo_node_from_doc("Rally", str(result.inserted_id))
                     ui.notify("Rally creado en MongoDB y Neo4j ✓", type="positive")

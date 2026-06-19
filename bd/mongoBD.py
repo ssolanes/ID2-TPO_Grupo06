@@ -126,21 +126,18 @@ def fecha(anio, mes, dia):
 # ══════════════════════════════════════════════════════════════════════════════
 patrocinadores = [
     {
-        "_id":        "sponsor_redbull",
         "nombre":     "RedBull",
         "tipo":       "principal",
         "pais_origen":"Austria",
         "activo":     True,
     },
     {
-        "_id":        "sponsor_pirelli",
         "nombre":     "Pirelli",
         "tipo":       "tecnico",
         "pais_origen":"Italia",
         "activo":     True,
     },
     {
-        "_id":        "sponsor_shell",
         "nombre":     "Shell",
         "tipo":       "tecnico",
         "pais_origen":"Países Bajos",
@@ -154,7 +151,6 @@ patrocinadores = [
 # ══════════════════════════════════════════════════════════════════════════════
 jefes_ingenieria = [
     {
-        "_id":              "ji_ross",
         "nombre":           "Michael",
         "apellido":         "Ross",
         "especialidad":     "Motores",
@@ -166,7 +162,6 @@ jefes_ingenieria = [
         "estado":           "activo",
     },
     {
-        "_id":              "ji_rivas",
         "nombre":           "Santiago",
         "apellido":         "Rivas",
         "especialidad":     "Suspensión",
@@ -178,7 +173,6 @@ jefes_ingenieria = [
         "estado":           "activo",
     },
     {
-        "_id":              "ji_sato",
         "nombre":           "Kenji",
         "apellido":         "Sato",
         "especialidad":     "Aerodinámica",
@@ -197,7 +191,6 @@ jefes_ingenieria = [
 # ══════════════════════════════════════════════════════════════════════════════
 equipos = [
     {
-        "_id":                  "eq_monster",
         "nombre":               "Monster Rally Team",
         "pais_base":            "Estados Unidos",
         "director":             "Brian Carter",
@@ -209,7 +202,6 @@ equipos = [
         "activo":               True,
     },
     {
-        "_id":                  "eq_andes",
         "nombre":               "Andes Motorsport",
         "pais_base":            "Argentina",
         "director":             "Rodrigo Pereyra",
@@ -221,7 +213,6 @@ equipos = [
         "activo":               True,
     },
     {
-        "_id":                  "eq_samurai",
         "nombre":               "Samurai Racing",
         "pais_base":            "Japón",
         "director":             "Takeshi Mori",
@@ -240,7 +231,6 @@ equipos = [
 # ══════════════════════════════════════════════════════════════════════════════
 copilotos = [
     {
-        "_id":               "copiloto_bellini",
         "nombre":            "Marco",
         "apellido":          "Bellini",
         "fecha_nacimiento":  fecha(1994, 3, 15),
@@ -252,7 +242,6 @@ copilotos = [
         "estado":            "activo",
     },
     {
-        "_id":               "copiloto_suarez",
         "nombre":            "Diego",
         "apellido":          "Suárez",
         "fecha_nacimiento":  fecha(1995, 8, 22),
@@ -264,7 +253,6 @@ copilotos = [
         "estado":            "activo",
     },
     {
-        "_id":               "copiloto_nakamura",
         "nombre":            "Yuki",
         "apellido":          "Nakamura",
         "fecha_nacimiento":  fecha(1997, 11, 4),
@@ -283,7 +271,6 @@ copilotos = [
 # ══════════════════════════════════════════════════════════════════════════════
 pilotos = [
     {
-        "_id":              "piloto_moretti",
         "nombre":           "Luca",
         "apellido":         "Moretti",
         "fecha_nacimiento": fecha(1997, 5, 10),   # edad 28 en 2026 (aprox.)
@@ -302,7 +289,6 @@ pilotos = [
         },
     },
     {
-        "_id":              "piloto_benitez",
         "nombre":           "Carlos",
         "apellido":         "Benítez",
         "fecha_nacimiento": fecha(1994, 9, 3),    # edad 31 en 2026
@@ -321,7 +307,6 @@ pilotos = [
         },
     },
     {
-        "_id":              "piloto_tanaka",
         "nombre":           "Hiro",
         "apellido":         "Tanaka",
         "fecha_nacimiento": fecha(1999, 12, 20),  # edad 26 en 2026
@@ -350,7 +335,6 @@ pilotos = [
 # ══════════════════════════════════════════════════════════════════════════════
 vehiculos = [
     {
-        "_id":              "veh_puma_r1",
         "equipo_id":        "eq_monster",
         "marca":            "Ford",
         "modelo":           "Puma Rally1",
@@ -374,7 +358,6 @@ vehiculos = [
         },
     },
     {
-        "_id":              "veh_fiesta_r2",
         "equipo_id":        "eq_monster",
         "marca":            "Ford",
         "modelo":           "Fiesta Rally2",
@@ -398,7 +381,6 @@ vehiculos = [
         },
     },
     {
-        "_id":              "veh_yaris_r1",
         "equipo_id":        "eq_andes",
         "marca":            "Toyota",
         "modelo":           "GR Yaris Rally1",
@@ -422,7 +404,6 @@ vehiculos = [
         },
     },
     {
-        "_id":              "veh_corolla_r2",
         "equipo_id":        "eq_andes",
         "marca":            "Toyota",
         "modelo":           "Corolla Rally2",
@@ -446,7 +427,6 @@ vehiculos = [
         },
     },
     {
-        "_id":              "veh_i20_r1",
         "equipo_id":        "eq_samurai",
         "marca":            "Hyundai",
         "modelo":           "i20 N Rally1",
@@ -470,7 +450,6 @@ vehiculos = [
         },
     },
     {
-        "_id":              "veh_i20_r2",
         "equipo_id":        "eq_samurai",
         "marca":            "Hyundai",
         "modelo":           "i20 Rally2",
@@ -503,7 +482,6 @@ vehiculos = [
 # ══════════════════════════════════════════════════════════════════════════════
 rallies = [
     {
-        "_id":                      "rally_fin_2026",
         "nombre":                   "Rally Finland",
         "temporada":                2026,
         "campeonato":               "wrc_2026",
@@ -515,104 +493,93 @@ rallies = [
         "equipos_participantes_ids": ["eq_monster", "eq_andes", "eq_samurai"],
         "legs": [
             {
-                "leg_id":     "rally_fin_2026_l1",
                 "nombre":     "Leg 1",
                 "dia":        "Viernes",
                 "special_stages": [
                     {
-                        "ss_id":           "rally_fin_2026_ss1",
                         "nombre":          "SS1",
                         "kilometros":      12.5,
                         "superficie":      "tierra",
                         "splits": [
-                            {"split_id": "rally_fin_2026_ss1_sp1", "nombre": "Split 1", "km": 4.2,  "tiempo_objetivo": "00:02:08"},
-                            {"split_id": "rally_fin_2026_ss1_sp2", "nombre": "Split 2", "km": 8.1,  "tiempo_objetivo": "00:04:05"},
-                            {"split_id": "rally_fin_2026_ss1_sp3", "nombre": "Split 3", "km": 11.0, "tiempo_objetivo": "00:05:35"},
+                            {"nombre": "Split 1", "km": 4.2,  "tiempo_objetivo": "00:02:08"},
+                            {"nombre": "Split 2", "km": 8.1,  "tiempo_objetivo": "00:04:05"},
+                            {"nombre": "Split 3", "km": 11.0, "tiempo_objetivo": "00:05:35"},
                         ],
                     },
                     {
-                        "ss_id":           "rally_fin_2026_ss2",
                         "nombre":          "SS2",
                         "kilometros":      18.3,
                         "superficie":      "tierra",
                         "splits": [
-                            {"split_id": "rally_fin_2026_ss2_sp1", "nombre": "Split 1", "km": 6.0,  "tiempo_objetivo": "00:03:00"},
-                            {"split_id": "rally_fin_2026_ss2_sp2", "nombre": "Split 2", "km": 13.5, "tiempo_objetivo": "00:06:45"},
+                            {"nombre": "Split 1", "km": 6.0,  "tiempo_objetivo": "00:03:00"},
+                            {"nombre": "Split 2", "km": 13.5, "tiempo_objetivo": "00:06:45"},
                         ],
                     },
                     {
-                        "ss_id":           "rally_fin_2026_ss3",
                         "nombre":          "SS3",
                         "kilometros":      15.1,
                         "superficie":      "tierra",
                         "splits": [
-                            {"split_id": "rally_fin_2026_ss3_sp1", "nombre": "Split 1", "km": 5.5,  "tiempo_objetivo": "00:02:45"},
-                            {"split_id": "rally_fin_2026_ss3_sp2", "nombre": "Split 2", "km": 11.8, "tiempo_objetivo": "00:05:50"},
+                            {"nombre": "Split 1", "km": 5.5,  "tiempo_objetivo": "00:02:45"},
+                            {"nombre": "Split 2", "km": 11.8, "tiempo_objetivo": "00:05:50"},
                         ],
                     },
                 ],
             },
             {
-                "leg_id":     "rally_fin_2026_l2",
                 "nombre":     "Leg 2",
                 "dia":        "Sábado",
                 "special_stages": [
                     {
-                        "ss_id":      "rally_fin_2026_ss4",
                         "nombre":     "SS4",
                         "kilometros": 21.4,
                         "superficie": "tierra",
                         "splits": [
-                            {"split_id": "rally_fin_2026_ss4_sp1", "nombre": "Split 1", "km": 7.0,  "tiempo_objetivo": "00:03:30"},
-                            {"split_id": "rally_fin_2026_ss4_sp2", "nombre": "Split 2", "km": 15.2, "tiempo_objetivo": "00:07:35"},
+                            {"nombre": "Split 1", "km": 7.0,  "tiempo_objetivo": "00:03:30"},
+                            {"nombre": "Split 2", "km": 15.2, "tiempo_objetivo": "00:07:35"},
                         ],
                     },
                     {
-                        "ss_id":      "rally_fin_2026_ss5",
                         "nombre":     "SS5",
                         "kilometros": 16.8,
                         "superficie": "tierra",
                         "splits": [
-                            {"split_id": "rally_fin_2026_ss5_sp1", "nombre": "Split 1", "km": 5.8,  "tiempo_objetivo": "00:02:55"},
-                            {"split_id": "rally_fin_2026_ss5_sp2", "nombre": "Split 2", "km": 12.4, "tiempo_objetivo": "00:06:10"},
+                            {"nombre": "Split 1", "km": 5.8,  "tiempo_objetivo": "00:02:55"},
+                            {"nombre": "Split 2", "km": 12.4, "tiempo_objetivo": "00:06:10"},
                         ],
                     },
                     {
-                        "ss_id":      "rally_fin_2026_ss6",
                         "nombre":     "SS6",
                         "kilometros": 19.2,
                         "superficie": "tierra",
                         "splits": [
-                            {"split_id": "rally_fin_2026_ss6_sp1", "nombre": "Split 1", "km": 6.5,  "tiempo_objetivo": "00:03:15"},
-                            {"split_id": "rally_fin_2026_ss6_sp2", "nombre": "Split 2", "km": 14.0, "tiempo_objetivo": "00:06:58"},
+                            {"nombre": "Split 1", "km": 6.5,  "tiempo_objetivo": "00:03:15"},
+                            {"nombre": "Split 2", "km": 14.0, "tiempo_objetivo": "00:06:58"},
                         ],
                     },
                 ],
             },
             {
-                "leg_id":     "rally_fin_2026_l3",
                 "nombre":     "Leg 3",
                 "dia":        "Domingo",
                 "special_stages": [
                     {
-                        "ss_id":      "rally_fin_2026_ss7",
                         "nombre":     "SS7",
                         "kilometros": 14.7,
                         "superficie": "tierra",
                         "splits": [
-                            {"split_id": "rally_fin_2026_ss7_sp1", "nombre": "Split 1", "km": 5.0,  "tiempo_objetivo": "00:02:30"},
-                            {"split_id": "rally_fin_2026_ss7_sp2", "nombre": "Split 2", "km": 11.2, "tiempo_objetivo": "00:05:35"},
+                            {"nombre": "Split 1", "km": 5.0,  "tiempo_objetivo": "00:02:30"},
+                            {"nombre": "Split 2", "km": 11.2, "tiempo_objetivo": "00:05:35"},
                         ],
                     },
                     {
-                        "ss_id":         "rally_fin_2026_ss8",
                         "nombre":        "Power Stage",
                         "kilometros":    10.9,
                         "superficie":    "tierra",
                         "puntos_extra":  True,
                         "splits": [
-                            {"split_id": "rally_fin_2026_ss8_sp1", "nombre": "Split 1", "km": 4.0,  "tiempo_objetivo": "00:02:00"},
-                            {"split_id": "rally_fin_2026_ss8_sp2", "nombre": "Split 2", "km": 8.5,  "tiempo_objetivo": "00:04:15"},
+                            {"nombre": "Split 1", "km": 4.0,  "tiempo_objetivo": "00:02:00"},
+                            {"nombre": "Split 2", "km": 8.5,  "tiempo_objetivo": "00:04:15"},
                         ],
                     },
                 ],
@@ -626,7 +593,6 @@ rallies = [
 # ══════════════════════════════════════════════════════════════════════════════
 resumenes_carrera = [
     {
-        "_id":              "resumen_fin_2026",
         "rally_id":         "rally_fin_2026",
         "titulo":           "Resumen Rally Finland 2026",
         "ganador":          "Luca Moretti",
@@ -658,7 +624,6 @@ resumenes_carrera = [
 # ══════════════════════════════════════════════════════════════════════════════
 noticias_reportes = [
     {
-        "_id":      "noticia_fin_2026_001",
         "rally_id": "rally_fin_2026",
         "tipo":     "incidente",
         "titular":  "Moretti sufre falla de motor en SS4 pero mantiene el liderato",
@@ -672,7 +637,6 @@ noticias_reportes = [
         "fuente":   "FIA Official Media",
     },
     {
-        "_id":      "noticia_fin_2026_002",
         "rally_id": "rally_fin_2026",
         "tipo":     "incidente",
         "titular":  "Benítez reporta problemas de suspensión en SS6",
@@ -687,7 +651,6 @@ noticias_reportes = [
         "fuente":   "Andes Motorsport Official",
     },
     {
-        "_id":      "noticia_fin_2026_003",
         "rally_id": "rally_fin_2026",
         "tipo":     "post_rally",
         "titular":  "Luca Moretti gana el Rally Finland 2026",
@@ -701,7 +664,6 @@ noticias_reportes = [
         "fuente":   "FIA Official Media",
     },
     {
-        "_id":      "noticia_fin_2026_004",
         "rally_id": "rally_fin_2026",
         "tipo":     "clima",
         "titular":  "Condiciones meteorológicas ideales esperadas para el Power Stage",
@@ -715,7 +677,6 @@ noticias_reportes = [
         "fuente":   "FIA Weather Service",
     },
     {
-        "_id":      "noticia_fin_2026_005",
         "rally_id": "rally_fin_2026",
         "tipo":     "preview",
         "titular":  "Rally Finland 2026: Tres equipos y una lucha por el podio",

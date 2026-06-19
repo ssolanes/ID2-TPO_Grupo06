@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from html import escape
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
-    generar_mongo_id, sync_neo_node_from_doc, delete_neo_node_from_doc, mostrar_dialogo_relaciones,
+    sync_neo_node_from_doc, delete_neo_node_from_doc, mostrar_dialogo_relaciones,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL
 )
 
@@ -119,7 +119,6 @@ def _dialogo_noticia(tabla, doc_id: str = None):
                     sync_neo_node_from_doc("NoticiaReporte", doc_id)
                     ui.notify("Reporte actualizado en MongoDB y Neo4j ✓", type="positive")
                 else:
-                    nuevo["_id"] = generar_mongo_id("noticias_reportes", "reporte", nuevo["titular"])
                     result = col.insert_one(nuevo)
                     sync_neo_node_from_doc("NoticiaReporte", str(result.inserted_id))
                     ui.notify("Reporte creado en MongoDB y Neo4j ✓", type="positive")
