@@ -309,8 +309,8 @@ def _cargar_labels():
     """)
 
 
-def _cargar_relaciones(tipo_filtro=None, relacion_filtro=None, limite=250):
-    limite = max(10, min(int(limite or 250), 250))
+def _cargar_relaciones(tipo_filtro=None, relacion_filtro=None, limite=10000):
+    limite = max(10, min(int(limite or 10000), 10000))
     rows = neo4j_query("""
         MATCH (a)-[r]->(b)
         WHERE ($tipo IS NULL OR $tipo IN labels(a) OR $tipo IN labels(b))
@@ -404,7 +404,7 @@ def page_neo4j():
         "tipo": "",
         "relacion": "",
         "orden": "mayor",
-        "limite": 100,
+        "limite": 10000,
     }
 
     with ui.row().style("min-height:100vh; width:100%; gap:0;"):
@@ -478,7 +478,7 @@ def page_neo4j():
                             on_change=lambda e: (filtros.update({"relacion": e.value or ""}), refrescar()),
                         ).props("outlined dark dense").style("min-width:260px;")
                         ui.button("Limpiar filtros", on_click=lambda: (
-                            filtros.update({"tipo": "", "relacion": "", "orden": "mayor", "limite": 100}),
+                            filtros.update({"tipo": "", "relacion": "", "orden": "mayor", "limite": 10000}),
                             refrescar(),
                         )).props("flat").style(f"color:{GREY}; font-family:Courier New;")
 

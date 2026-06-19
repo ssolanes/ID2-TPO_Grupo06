@@ -22,6 +22,9 @@ def index():
     with ui.column().classes("items-center justify-center").style(
         f"min-height:100vh; width:100%;"
     ):
+        ui.link("← Volver", "http://localhost:8080").style(
+            f"color:{GREY}; font-family:Courier New; font-weight:bold; border:1px solid {BORDER}; border-radius:6px; padding:6px 16px; margin-bottom:16px; text-decoration:none;"
+        )
         ui.html(
             f'<div style="text-align:center; padding:40px;">'
             f'<div style="font-family:Courier New; font-size:3rem; font-weight:bold; color:{RED};">WRC</div>'

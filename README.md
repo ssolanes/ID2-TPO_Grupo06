@@ -2,17 +2,6 @@
 
 Proyecto en Python con NiceGUI para administrar datos de World Rally Cup usando MongoDB, Neo4j, Redis y Cassandra.
 
-## Estado actual
-
-- `run.py` levanta el selector principal.
-- Datos estaticos en `localhost:8081`: CRUD MongoDB + relaciones Neo4j.
-- Tiempo real en `localhost:8082`: Redis + Cassandra.
-- MongoDB guarda las entidades principales.
-- Al crear o editar entidades desde MongoDB, se crea o actualiza automaticamente su nodo en Neo4j.
-- Neo4j se usa para crear relaciones entre nodos, no para crear nodos manualmente.
-- Redis mantiene el estado vivo de carrera.
-- Cassandra persiste el historico generado desde Redis.
-
 ## Modelo de datos
 
 ### MongoDB

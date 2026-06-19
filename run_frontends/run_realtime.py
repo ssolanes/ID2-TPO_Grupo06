@@ -212,6 +212,17 @@ def index():
     ui.add_head_html(GLOBAL_CSS)
     ui.query("body").style(f"background:{DARK}; margin:0; padding:24px; box-sizing:border-box;")
 
+    # Custom Header with back button
+    with ui.row().classes("w-full items-center justify-between").style("margin-bottom: 20px;"):
+        ui.html(
+            f'<div style="font-family:Courier New; font-size:1.8rem; font-weight:bold; color:{RED};">'
+            f'WRC REALTIME · <span style="font-size:0.9rem; color:{GREY};">Telemetría y Datos en Vivo</span>'
+            f'</div>'
+        )
+        ui.link("← Volver", "http://localhost:8080").style(
+            f"color:{GREY}; font-family:Courier New; font-weight:bold; border:1px solid {BORDER}; border-radius:6px; padding:6px 16px; text-decoration:none;"
+        )
+
     redis_box = None
     autos_box = None
     cassandra_box = None
