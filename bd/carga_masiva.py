@@ -7,16 +7,15 @@ Reglas principales:
 - Neo4j guarda nodos livianos con mongo_id = str(_id de MongoDB).
 - Las relaciones de Neo4j se crean buscando nodos por mongo_id.
 
-La carga se puede ejecutar varias veces. Para reemplazar los datos masivos
-anteriores se guardan los _id insertados en una coleccion tecnica de metadata,
-no en los documentos de negocio.
+La carga se puede ejecutar varias veces. Cada ejecucion reinicia por completo
+la base MongoDB configurada y todos los nodos/relaciones de Neo4j antes de
+insertar los datos nuevos.
 """
 
 from datetime import datetime, timezone
 import os
 import sys
 
-from bson import ObjectId
 from neo4j import GraphDatabase
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
@@ -28,11 +27,10 @@ NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "12345678")
 
-LIMPIAR_ANTES_DE_CARGAR = False
+LIMPIAR_ANTES_DE_CARGAR = True
 BATCH_SIZE = 250
 CARGA_ID = "world_rally_bulk"
 METADATA_COLLECTION = "_carga_masiva_meta"
-LEGACY_ORIGEN_CARGA = "carga_masiva_world_rally"
 
 
 MONGO_COLLECTIONS = (
@@ -47,8 +45,6 @@ MONGO_COLLECTIONS = (
     "resumenes_carrera",
     "noticias_reportes",
 )
-
-LEGACY_COLLECTIONS = MONGO_COLLECTIONS + ("fallas_mecanicas",)
 
 NEO_LABELS = {
     "campeonatos": "Campeonato",
@@ -370,72 +366,27 @@ def ref(index, tmp_key):
     return index[tmp_key]["_id"]
 
 
-def object_ids(ids):
-    values = []
-    for value in ids:
-        try:
-            values.append(ObjectId(value))
-        except Exception:
-            continue
-    return values
-
-
 def limpiar_datos_previos(db, driver):
-    old_mongo_ids = set()
+    if not LIMPIAR_ANTES_DE_CARGAR:
+        raise RuntimeError("La carga masiva esta configurada para reiniciar toda la base.")
 
-    driver.execute_query("MATCH ()-[r:HABLA_DE]->() DELETE r", database_="neo4j")
-    driver.execute_query("MATCH ()-[r:TIENE_FALLA]->() DELETE r", database_="neo4j")
-    driver.execute_query("MATCH (n:FallaMecanica) DETACH DELETE n", database_="neo4j")
+    print("Limpieza completa: se borran todas las colecciones de MongoDB y todos los nodos de Neo4j.")
 
-    if LIMPIAR_ANTES_DE_CARGAR:
-        print("Limpieza completa habilitada: se borran colecciones y labels de la carga.")
-        for collection in LEGACY_COLLECTIONS:
-            deleted = db[collection].delete_many({}).deleted_count
-            print(f"MongoDB {collection:<20} borrados={deleted}")
-        db[METADATA_COLLECTION].delete_one({"_id": CARGA_ID})
-        driver.execute_query(
-            """
-            MATCH (n)
-            WHERE any(label IN labels(n) WHERE label IN $labels)
-            DETACH DELETE n
-            """,
-            labels=list(NEO_LABELS.values()),
-            database_="neo4j",
-        )
-        return
+    for collection in db.list_collection_names():
+        deleted = db[collection].delete_many({}).deleted_count
+        print(f"MongoDB {collection:<24} borrados={deleted}")
 
-    print("Limpieza segura: se reemplaza solo la carga masiva anterior.")
-    metadata = db[METADATA_COLLECTION].find_one({"_id": CARGA_ID}) or {}
-    for collection, ids in metadata.get("mongo_ids", {}).items():
-        oid_values = object_ids(ids)
-        if not oid_values:
-            continue
-        deleted = db[collection].delete_many({"_id": {"$in": oid_values}}).deleted_count
-        old_mongo_ids.update(ids)
-        print(f"MongoDB {collection:<20} borrados_metadata={deleted}")
-
-    for collection in LEGACY_COLLECTIONS:
-        legacy_ids = [
-            str(doc["_id"])
-            for doc in db[collection].find({"origen_carga": LEGACY_ORIGEN_CARGA}, {"_id": 1})
-        ]
-        if legacy_ids:
-            deleted = db[collection].delete_many({"_id": {"$in": object_ids(legacy_ids)}}).deleted_count
-            old_mongo_ids.update(legacy_ids)
-            print(f"MongoDB {collection:<20} borrados_legacy={deleted}")
-
-    db[METADATA_COLLECTION].delete_one({"_id": CARGA_ID})
-
-    if old_mongo_ids:
-        driver.execute_query(
-            """
-            MATCH (n)
-            WHERE n.mongo_id IN $mongo_ids
-            DETACH DELETE n
-            """,
-            mongo_ids=list(old_mongo_ids),
-            database_="neo4j",
-        )
+    records, _, _ = driver.execute_query(
+        """
+        MATCH (n)
+        WITH collect(n) AS nodos, count(n) AS cantidad
+        FOREACH (n IN nodos | DETACH DELETE n)
+        RETURN cantidad
+        """,
+        database_="neo4j",
+    )
+    cantidad = records[0]["cantidad"] if records else 0
+    print(f"Neo4j nodos borrados={cantidad}")
 
 
 def insertar_documentos(db, data):
