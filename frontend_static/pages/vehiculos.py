@@ -4,7 +4,7 @@
 from nicegui import ui
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
-    generar_mongo_id, sync_neo_node_from_doc, delete_neo_node_from_doc,
+    generar_mongo_id, sync_neo_node_from_doc, delete_neo_node_from_doc, mostrar_dialogo_relaciones,
     RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL
 )
 
@@ -191,6 +191,9 @@ def page_vehiculos():
 
             tabla.add_slot("body-cell-acciones", """
                 <q-td :props="props" style="text-align:center;">
+                  <q-btn flat round dense icon="link"
+                    style="color:#0080FF; margin-right:4px;"
+                    @click="$parent.$emit('relaciones', props.row)" />
                   <q-btn flat round dense icon="edit"
                     style="color:#F5C518; margin-right:4px;"
                     @click="$parent.$emit('editar', props.row)" />
@@ -200,6 +203,7 @@ def page_vehiculos():
                 </q-td>
             """)
 
+            tabla.on("relaciones", lambda e: mostrar_dialogo_relaciones("Vehiculo", e.args.get("_id"), e.args.get("modelo", "?")))
             tabla.on("editar",   lambda e: _dialogo_vehiculo(tabla, e.args.get("_id")))
             tabla.on("eliminar", lambda e: _confirmar_eliminar(
                 tabla, e.args.get("_id"), e.args.get("modelo", "?")))

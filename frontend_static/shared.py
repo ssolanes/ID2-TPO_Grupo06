@@ -3,6 +3,7 @@
 
 from pymongo import MongoClient
 from neo4j import GraphDatabase
+from bson import ObjectId
 import re
 import unicodedata
 
@@ -19,6 +20,11 @@ def mongo_col(nombre: str):
     return get_mongo_db()[nombre]
 
 def get_query_id(doc_id: str):
+    try:
+        if ObjectId.is_valid(doc_id):
+            return ObjectId(doc_id)
+    except Exception:
+        pass
     return doc_id
 
 
@@ -173,6 +179,87 @@ def delete_neo_node_from_doc(tipo: str, doc_id: str):
         MATCH (n:{meta["label"]} {{mongo_id: $mongo_id}})
         DETACH DELETE n
     """, {"mongo_id": str(doc_id)})
+
+
+def _nombre_nodo_neo(expresion="n"):
+    return (
+        f"coalesce({expresion}.nombre, {expresion}.modelo, "
+        f"properties({expresion})['titular'], properties({expresion})['titulo'], "
+        f"{expresion}.mongo_id, '-')"
+    )
+
+
+def obtener_relaciones_neo(tipo: str, doc_id: str):
+    meta = ENTIDADES_NEO.get(tipo, {"label": tipo, "coleccion": None})
+    label = meta["label"]
+    doc = mongo_col(meta["coleccion"]).find_one({"_id": get_query_id(str(doc_id))}) if meta.get("coleccion") else None
+    display = display_doc_neo(tipo, doc) if doc else ""
+
+    rows = neo4j_query(f"""
+        MATCH (n:{label})
+        WHERE n.mongo_id = $mongo_id OR ($display <> '' AND n.nombre = $display)
+        CALL (n) {{
+            MATCH (n)-[r]->(m)
+            RETURN type(r) AS relacion,
+                   'saliente' AS direccion,
+                   labels(m)[0] AS tipo_nodo,
+                   {_nombre_nodo_neo("m")} AS nodo
+            UNION ALL
+            MATCH (m)-[r]->(n)
+            RETURN type(r) AS relacion,
+                   'entrante' AS direccion,
+                   labels(m)[0] AS tipo_nodo,
+                   {_nombre_nodo_neo("m")} AS nodo
+        }}
+        RETURN relacion, direccion, tipo_nodo, nodo
+        ORDER BY direccion DESC, relacion, tipo_nodo, nodo
+    """, {"mongo_id": str(doc_id), "display": display})
+    return rows
+
+
+def mostrar_dialogo_relaciones(tipo: str, doc_id: str, titulo: str = ""):
+    from nicegui import ui
+
+    try:
+        relaciones = obtener_relaciones_neo(tipo, doc_id)
+    except Exception as e:
+        ui.notify(f"Error Neo4j: {e}", type="negative")
+        return
+
+    encabezado = titulo or f"{tipo} {doc_id}"
+    with ui.dialog() as dlg, ui.card().style(
+        f"background:{CARD}; border:1px solid {BORDER}; min-width:520px; "
+        f"max-width:760px; max-height:80vh; overflow-y:auto;"
+    ):
+        with ui.row().classes("w-full items-center justify-between").style("gap:12px;"):
+            ui.html(
+                f'<div style="font-family:Courier New;font-size:1.05rem;font-weight:bold;'
+                f'color:{BLUE}; overflow-wrap:anywhere;">Relaciones · {encabezado}</div>'
+            )
+            ui.button(icon="close", on_click=dlg.close).props("flat round dense").style(f"color:{GREY};")
+
+        ui.separator().style(f"background:{BORDER};")
+
+        if not relaciones:
+            ui.label("No se encontraron relaciones").style(
+                f"font-family:Courier New; color:{GREY}; padding:12px 0;"
+            )
+        else:
+            with ui.column().classes("w-full").style("gap:8px;"):
+                for rel in relaciones:
+                    flecha = "->" if rel.get("direccion") == "saliente" else "<-"
+                    ui.html(
+                        f'<div style="background:{CARD2}; border:1px solid {BORDER}; border-radius:8px; '
+                        f'padding:10px 12px; font-family:Courier New;">'
+                        f'<span style="color:{GOLD}; font-weight:bold;">{rel.get("relacion", "-")}</span> '
+                        f'<span style="color:{GREY};">{flecha}</span> '
+                        f'<span style="color:{WHITE}; font-weight:bold;">{rel.get("nodo", "-")}</span>'
+                        f'<div style="color:{GREY}; font-size:0.78rem; margin-top:4px;">'
+                        f'{rel.get("direccion", "-")} · {rel.get("tipo_nodo", "-")}</div>'
+                        f'</div>'
+                    )
+
+    dlg.open()
 
 # ─── Paleta WRC ──────────────────────────────────────────────────────────────
 RED    = "#E8002A"
