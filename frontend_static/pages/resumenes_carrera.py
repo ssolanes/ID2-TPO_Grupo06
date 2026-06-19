@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from frontend_static.shared import (
     mongo_col, sidebar, GLOBAL_CSS, get_query_id,
     sync_neo_node_from_doc, delete_neo_node_from_doc, mostrar_dialogo_relaciones,
-    RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL
+    RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK, PANEL,
+    TablaPaginada
 )
 
 
@@ -223,7 +224,7 @@ def page_resumenes_carrera():
 
             filas = _cargar_filas()
 
-            tabla = ui.table(columns=columnas, rows=filas, row_key="_id").style(
+            tabla = TablaPaginada(columns=columnas, rows=filas, row_key="_id").style(
                 f"background:{CARD}; border:1px solid {BORDER}; border-radius:10px; width:100%;"
             ).props("flat dark")
 

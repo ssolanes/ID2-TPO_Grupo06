@@ -5,7 +5,8 @@ from nicegui import ui
 from frontend_static.shared import (
     mongo_col, neo4j_query, sidebar, GLOBAL_CSS,
     ENTIDADES_NEO, display_doc_neo,
-    RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK
+    RED, GOLD, GREEN, BLUE, GREY, CARD, CARD2, BORDER, WHITE, DARK,
+    TablaPaginada
 )
 
 # CRUD (hay que modificarlo)
@@ -476,18 +477,6 @@ def page_neo4j():
                             label="Relación",
                             on_change=lambda e: (filtros.update({"relacion": e.value or ""}), refrescar()),
                         ).props("outlined dark dense").style("min-width:260px;")
-                        ui.select(
-                            {"mayor": "Nodos: mayor a menor", "menor": "Nodos: menor a mayor", "nombre": "Nodos: por nombre"},
-                            value=filtros["orden"],
-                            label="Orden",
-                            on_change=lambda e: (filtros.update({"orden": e.value or "mayor"}), refrescar()),
-                        ).props("outlined dark dense").style("min-width:210px;")
-                        ui.select(
-                            {25: "25 relaciones", 50: "50 relaciones", 100: "100 relaciones", 250: "250 relaciones"},
-                            value=filtros["limite"],
-                            label="Mostrar",
-                            on_change=lambda e: (filtros.update({"limite": int(e.value or 100)}), refrescar()),
-                        ).props("outlined dark dense").style("min-width:160px;")
                         ui.button("Limpiar filtros", on_click=lambda: (
                             filtros.update({"tipo": "", "relacion": "", "orden": "mayor", "limite": 100}),
                             refrescar(),
@@ -573,7 +562,7 @@ def page_neo4j():
                         {"name": "destino_tipo","label": "DESTINO TIPO","field": "destino_tipo","sortable": True, "align": "left", "style": f"color:{BLUE}; font-weight:bold;"},
                         {"name": "destino",     "label": "DESTINO",     "field": "destino",     "sortable": True, "align": "left", "style": f"color:{WHITE}; font-weight:bold;"},
                     ]
-                    ui.table(columns=columnas, rows=relaciones, row_key="origen").style(
+                    TablaPaginada(columns=columnas, rows=relaciones, row_key="origen").style(
                         f"background:{CARD}; border:1px solid {BORDER}; border-radius:10px; width:100%;"
                     ).props("flat dark")
 

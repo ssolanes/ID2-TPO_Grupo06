@@ -412,3 +412,105 @@ def sidebar(pagina_actual: str):
                 f'FIA · Temporada 2026<br>'
                 f'<span style="color:{BORDER};">MongoDB · Neo4j</span></div>'
             )
+
+
+class TablaPaginada:
+    def __init__(self, columns, rows, row_key="_id", page_size=10):
+        from nicegui import ui
+        self.columns = columns
+        self.todas_las_filas = list(rows)
+        self.row_key = row_key
+        self.page_size = page_size
+        self.pagina_actual = 1
+        
+        # Build ui.table with "hide-bottom" to hide Quasar's default pagination
+        self.tabla = ui.table(
+            columns=self.columns,
+            rows=[],
+            row_key=self.row_key
+        ).props("hide-bottom")
+        
+        # Container for the page navigation buttons
+        self.pag_container = ui.row().classes("w-full justify-center items-center gap-2").style("margin-top: 16px;")
+        self.actualizar_vista()
+
+    def style(self, style_str):
+        self.tabla.style(style_str)
+        return self
+
+    def props(self, props_str):
+        self.tabla.props(props_str)
+        return self
+
+    def actualizar_vista(self):
+        from nicegui import ui
+        total_filas = len(self.todas_las_filas)
+        total_paginas = max(1, (total_filas + self.page_size - 1) // self.page_size)
+        
+        if self.pagina_actual > total_paginas:
+            self.pagina_actual = total_paginas
+        if self.pagina_actual < 1:
+            self.pagina_actual = 1
+            
+        start_idx = (self.pagina_actual - 1) * self.page_size
+        end_idx = start_idx + self.page_size
+        self.tabla.rows = self.todas_las_filas[start_idx:end_idx]
+        self.tabla.update()
+        
+        self.pag_container.clear()
+        if total_paginas > 1:
+            with self.pag_container:
+                # Anterior button
+                ui.button(
+                    "<", 
+                    on_click=lambda: self.ir_a_pagina(self.pagina_actual - 1)
+                ).props("flat dense").style(
+                    f"color: {WHITE}; font-family: 'Courier New', monospace; font-weight: bold; min-width: 28px;"
+                ).set_visibility(self.pagina_actual > 1)
+                
+                # Show all page numbers
+                start_p = 1
+                end_p = total_paginas
+                
+                for p in range(start_p, end_p + 1):
+                    es_actual = (p == self.pagina_actual)
+                    color_texto = RED if es_actual else WHITE
+                    peso = "font-weight: bold;" if es_actual else ""
+                    borde = f"border: 1px solid {RED}; border-radius: 4px; min-width: 28px;" if es_actual else "border: 1px solid transparent; min-width: 28px;"
+                    ui.button(
+                        str(p),
+                        on_click=lambda _, page=p: self.ir_a_pagina(page)
+                    ).props("flat dense").style(
+                        f"color: {color_texto}; font-family: 'Courier New', monospace; {peso} {borde}"
+                    )
+                    
+                # Siguiente button
+                ui.button(
+                    ">", 
+                    on_click=lambda: self.ir_a_pagina(self.pagina_actual + 1)
+                ).props("flat dense").style(
+                    f"color: {WHITE}; font-family: 'Courier New', monospace; font-weight: bold; min-width: 28px;"
+                ).set_visibility(self.pagina_actual < total_paginas)
+
+    def ir_a_pagina(self, pagina):
+        self.pagina_actual = pagina
+        self.actualizar_vista()
+        
+    def add_slot(self, name, content):
+        return self.tabla.add_slot(name, content)
+        
+    def on(self, event, handler):
+        return self.tabla.on(event, handler)
+        
+    @property
+    def rows(self):
+        return self.todas_las_filas
+        
+    @rows.setter
+    def rows(self, new_rows):
+        self.todas_las_filas = list(new_rows)
+        self.actualizar_vista()
+        
+    def update(self):
+        self.actualizar_vista()
+
